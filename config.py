@@ -16,6 +16,7 @@ WARMUP_STEPS = 10
 MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 2000
 MIN_LEARINGRATE = 1e-4
+# 以上除DEVICE外皆为超参数
 
 # Pretraining data
 NEWS_FILES = list(map(lambda x: "WanJuan-News/" + x, os.listdir("WanJuan-News/")))
@@ -34,6 +35,8 @@ SPECIAL_TOKENS_TENSORS = {
     token_name: torch.tensor(SPECIAL_TOKENS_IDS[token_name]).to(DEVICE)
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
+
+PRETRAINED_STATE_DICT_PATH = ""
 
 __all__ = [
     "DEVICE",
@@ -54,5 +57,6 @@ __all__ = [
     "PRETRAIN_DATA",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
-    "SPECIAL_TOKENS_TENSORS"
+    "SPECIAL_TOKENS_TENSORS",
+    "PRETRAINED_STATE_DICT_PATH"
 ]

@@ -19,10 +19,11 @@ if TRAIN:
     optimizer = optim.AdamW(llm.parameters(), fused=True)
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     step = 0
-    state_dict = torch.load("llm1000_state_dict.pt")
-    llm.load_state_dict(state_dict)
+    if PRETRAINED_STATE_DICT_PATH:
+        state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
+        llm.load_state_dict(state_dict)
+        del state_dict
     llm.train()
-    del state_dict
     start_time = time.time()
     while not loader.ended:
         t0 = time.time()
@@ -64,7 +65,7 @@ if TRAIN:
     torch.save(llm.state_dict(), f"llm{step + 1000}_state_dict_{total_loss}.pt")
     print("Training successfully ended.")
 else:
-    state_dict = torch.load("llm1000_state_dict.pt")
+    state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
     llm.load_state_dict(state_dict)
     llm.eval()
     with torch.no_grad():
