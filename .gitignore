@@ -1,0 +1,3 @@
+*.txt
+*.jsonl
+__pycache__
