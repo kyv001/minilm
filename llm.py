@@ -16,15 +16,20 @@ print("Compiling module")
 llm = torch.compile(llm)
 print("Compiled successfully")
 if TRAIN:
-    data_queue = multiprocessing.Queue()
-    def load_data():
-        loader = WanJuanLoader(PRETRAIN_DATA, encoder)
+    data_queue = multiprocessing.JoinableQueue()
+    def load_data(fname, encoder, batch_size, max_length):
+        loader = WanJuanLoader(fname, encoder)
         while not loader.ended:
-            data_queue.put((*loader.get_data(BATCH_SIZE, MAX_LENGTH), loader.line, loader.total_lines))
+            data_queue.put((*loader.get_data(batch_size, max_length), loader.line, loader.total_lines))
         data_queue.put((0, 0, 0, 0, 0))
-    data_proc = multiprocessing.Process(target=load_data, name="Data Loader")
-    data_proc.run()
-    
+        print("\nData fully loaded.\n")
+        data_queue.join()
+    data_proc = multiprocessing.Process(
+        target=load_data,
+        name="Data Loader",
+        args=(PRETRAIN_DATA, encoder, BATCH_SIZE, MAX_LENGTH)
+    )
+    data_proc.start()
     optimizer = optim.AdamW(llm.parameters(), fused=True)
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     step = 0
@@ -33,8 +38,9 @@ if TRAIN:
         llm.load_state_dict(state_dict)
         del state_dict
     llm.train()
-    start_time = time.time()
     ended = False
+    print("Start training.")
+    start_time = time.time()
     while not ended:
         t0 = time.time()
         step += 1
@@ -47,6 +53,7 @@ if TRAIN:
         for i in range(N_BATCHES):
             t1 = time.time()
             x, y, n_tokens, current_line, total_lines = data_queue.get()
+            data_queue.task_done()
             if isinstance(x, int):
                 ended = True
                 step -= 1
@@ -77,7 +84,7 @@ if TRAIN:
             if step % 20 == 0:
                 torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
                 print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
-    torch.save(llm.state_dict(), f"llm{step + 1000}_state_dict_{total_loss}.pt")
+    torch.save(llm.state_dict(), f"llm{step}_state_dict_{total_loss}.pt")
     print("Training successfully ended.")
 else:
     state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
