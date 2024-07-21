@@ -3,3 +3,4 @@ WanJuan-*
 note.txt
 venv
 *.jsonl
+*.pt

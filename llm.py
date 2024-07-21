@@ -1,4 +1,5 @@
 import time
+import multiprocessing
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
@@ -15,7 +16,15 @@ print("Compiling module")
 llm = torch.compile(llm)
 print("Compiled successfully")
 if TRAIN:
-    loader = WanJuanLoader(PRETRAIN_DATA, encoder)
+    data_queue = multiprocessing.Queue()
+    def load_data():
+        loader = WanJuanLoader(PRETRAIN_DATA, encoder)
+        while not loader.ended:
+            data_queue.put((*loader.get_data(BATCH_SIZE, MAX_LENGTH), loader.line, loader.total_lines))
+        data_queue.put((0, 0, 0, 0, 0))
+    data_proc = multiprocessing.Process(target=load_data, name="Data Loader")
+    data_proc.run()
+    
     optimizer = optim.AdamW(llm.parameters(), fused=True)
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     step = 0
@@ -25,7 +34,8 @@ if TRAIN:
         del state_dict
     llm.train()
     start_time = time.time()
-    while not loader.ended:
+    ended = False
+    while not ended:
         t0 = time.time()
         step += 1
 
@@ -36,7 +46,11 @@ if TRAIN:
         optimizer.zero_grad()
         for i in range(N_BATCHES):
             t1 = time.time()
-            x, y, n_tokens = loader.get_data(BATCH_SIZE, MAX_LENGTH)
+            x, y, n_tokens, current_line, total_lines = data_queue.get()
+            if isinstance(x, int):
+                ended = True
+                step -= 1
+                break
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             res = llm(x)
@@ -48,20 +62,21 @@ if TRAIN:
             total_loss += loss.item()
             print(f"{loss.item() * N_BATCHES:.3f} {i + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
             del x, y, res, loss
-        print()
+        else:
+            print()
 
-        nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
-        optimizer.step()
+            nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
+            optimizer.step()
 
-        progress = loader.line / loader.total_lines
-        step_time = time.time() - t0
-        total_time = step_time + t0 - start_time
-        print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f}")
-        print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {step / progress * step_time - total_time:.3f}s to go")
+            progress = current_line / total_lines
+            step_time = time.time() - t0
+            total_time = step_time + t0 - start_time
+            print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f}")
+            print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {step / progress * step_time - total_time:.3f}s to go")
 
-        if step % 20 == 0:
-            torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
-            print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
+            if step % 20 == 0:
+                torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
+                print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
     torch.save(llm.state_dict(), f"llm{step + 1000}_state_dict_{total_loss}.pt")
     print("Training successfully ended.")
 else:
