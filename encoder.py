@@ -6,7 +6,7 @@ class Encoder:
         self.unk = len(self.vocab) - 1
         self.vocab_size = len(self.vocab)
 
-    def encode(self, string: str) -> list[int]:
+    def encode(self, string: str) -> list:
         codes = []
         for char in string:
             for i in range(len(self.vocab)):
@@ -17,7 +17,7 @@ class Encoder:
                 codes.append(self.unk)
         return codes
 
-    def decode(self, codes: list[int]) -> str:
+    def decode(self, codes: list) -> str:
         string = ""
         for code in codes:
             if 0 <= code <= self.vocab_size - 1:
@@ -57,8 +57,8 @@ if __name__ == "__main__": # 构建编码器
     print("Loading encoder from encoder.json")
     encoder = Encoder.from_path("encoder.json")
     """
-    encoder = Encoder.from_path("encoder.json")
-    print(codes := encoder.encode("这是一个测试"))
-    print(encoder.decode(codes + [1]))
-    print(encoder.vocab_size)
+    # encoder = Encoder.from_path("encoder.json")
+    # print(codes := encoder.encode("这是一个测试")) # Python3.8+!!!!!
+    # print(encoder.decode(codes + [1]))
+    # print(encoder.vocab_size)
 

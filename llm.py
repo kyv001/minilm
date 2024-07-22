@@ -9,12 +9,12 @@ from encoder import Encoder
 from modules import LLM
 from lr_schedule import get_schedule
 
-torch.set_float32_matmul_precision('high')
+# torch.set_float32_matmul_precision('high') # Ampere only
 encoder = Encoder.from_path("encoder.json")
 llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT).to(DEVICE)
-print("Compiling module")
-llm = torch.compile(llm)
-print("Compiled successfully")
+# print("Compiling module")
+# llm = torch.compile(llm) # torch 2+
+# print("Compiled successfully")
 if TRAIN:
     data_queue = multiprocessing.JoinableQueue()
     def load_data(fname, encoder, batch_size, max_length):
@@ -30,7 +30,7 @@ if TRAIN:
         args=(PRETRAIN_DATA, encoder, BATCH_SIZE, MAX_LENGTH)
     )
     data_proc.start()
-    optimizer = optim.AdamW(llm.parameters(), fused=True)
+    optimizer = optim.AdamW(llm.parameters())# , fused=True) # torch 2+
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     step = 0
     if PRETRAINED_STATE_DICT_PATH:
