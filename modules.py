@@ -3,8 +3,9 @@ from torch import nn
 from config import *
 
 class MLP(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim, device):
         super().__init__()
+        self.device = device
         self.linear = nn.Linear(dim, dim * 4)
         self.gelu = nn.GELU()
         self.proj = nn.Linear(dim * 4, dim)
@@ -15,8 +16,9 @@ class MLP(nn.Module):
         return self.proj(x)
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, dim, n_heads, dropout):
+    def __init__(self, dim, n_heads, dropout, device):
         super().__init__()
+        self.device = device
         self.linear = nn.Linear(dim, dim * 3, bias=False)
         self.mha = nn.MultiheadAttention(dim, n_heads, dropout, batch_first=True)
         self.proj = nn.Linear(dim, dim)
@@ -24,7 +26,7 @@ class CausalSelfAttention(nn.Module):
     def forward(self, x, key_padding_mask):
         qkv = self.linear(x)
         q, k, v = qkv.split(qkv.size(2) // 3, 2)
-        causal_mask = torch.tril(torch.ones((x.size(1), x.size(1)))).to(DEVICE) == 0
+        causal_mask = torch.tril(torch.ones((x.size(1), x.size(1)))).to(self.device) == 0
         x = self.mha(
             q, k, v,
             key_padding_mask=key_padding_mask,
@@ -35,12 +37,13 @@ class CausalSelfAttention(nn.Module):
         return self.proj(x)
 
 class Block(nn.Module):
-    def __init__(self, dim, n_heads, dropout):
+    def __init__(self, dim, n_heads, dropout, device):
         super().__init__()
+        self.device = device
         self.ln1 = nn.LayerNorm(dim)
-        self.attn = CausalSelfAttention(dim, n_heads, dropout)
+        self.attn = CausalSelfAttention(dim, n_heads, dropout, device)
         self.ln2 = nn.LayerNorm(dim)
-        self.mlp = MLP(dim)
+        self.mlp = MLP(dim, device)
 
     def forward(self, x, key_padding_mask):
         x = x + self.attn(self.ln1(x), key_padding_mask)
@@ -48,12 +51,13 @@ class Block(nn.Module):
         return x
 
 class LLM(nn.Module):
-    def __init__(self, vocab_size, dim, max_length, n_heads, n_blocks, dropout):
+    def __init__(self, vocab_size, dim, max_length, n_heads, n_blocks, dropout, device):
         super().__init__()
+        self.device = device
         self.wte = nn.Embedding(vocab_size, dim)
         self.pe = nn.Embedding(max_length, dim)
         self.blocks = nn.ModuleList([
-            Block(dim, n_heads, dropout) for _ in range(n_blocks)
+            Block(dim, n_heads, dropout, device) for _ in range(n_blocks)
         ])
         self.ln = nn.LayerNorm(dim)
         self.lmhead = nn.Linear(dim, vocab_size)

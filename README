@@ -2,14 +2,13 @@
 自带了使用万卷数据集进行预训练的部分代码，可惜笔记本性能低下无法自行完成训练。
 如何自行训练？
 1、将https://opendatalab.com/OpenDataLab/WanJuan1_dot_0/tree/main/raw/nlp/CN 中ChinaNews-cn文件夹下所有文件下载到WanJuan-News文件夹下、把WebText-cn文件夹下所有文件下载到WanJuan-Webtext文件夹下；
-2、修改config.py中PRETRAIN_DATA变量为数据集中某个.jsonl文件的相对路径，按需求调整超参数；
-3、安装requirements.txt内所有包；
-4、然后运行llm.py以开始训练（如果没有NVIDIA显卡很可能会报错，显存至少6G）；
+2、安装requirements.txt内所有包并将config.py中USE_TORCH2改为True，如果无法安装则安装requirements_old.txt并保留USE_TORCH2为False；
+3、如果只有一张显卡，运行python3 llm.py；如果有不止一张显卡，运行torchrun --standalone --nproc_per_node={显卡数量} llm.py。
 
 训练完毕，如何推理？
 1、选择目录中整数部分最大的pth文件，将其文件名填入config.py的PRETRAINED_STATE_DICT_PATH变量的双引号中；
 2、修改config.py中的TRAIN变量为False；
-3、运行llm.py以进行推理（效果不会很好）；
+3、运行python llm.py以进行推理（效果不会很好）；
 
 GPL-3.0
 <del>这是蜂群克隆计划的一部分</del>
