@@ -1,6 +1,7 @@
 backcall==0.2.0
 dataclasses==0.8
 decorator==5.1.1
+importlib-resources==5.4.0
 ipython==7.16.3
 ipython-genutils==0.2.0
 jedi==0.17.2
@@ -14,6 +15,8 @@ ptyprocess==0.7.0
 Pygments==2.14.0
 six==1.16.0
 torch==1.10.2
+tqdm==4.64.1
 traitlets==4.3.3
 typing_extensions==4.1.1
 wcwidth==0.2.13
+zipp==3.6.0

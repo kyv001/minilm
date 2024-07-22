@@ -30,9 +30,9 @@ def train(RANK, WORLD_SIZE, DDP):
         llm = DDP(llm, device_ids=[RANK])
     data_queue = multiprocessing.JoinableQueue()
     def load_data(fname, encoder, batch_size, max_length):
-        loader = WanJuanLoader(fname, encoder)
+        loader = WanJuanLoader(fname, encoder, batch_size, max_length)
         while not loader.ended:
-            data_queue.put((*loader.get_data(batch_size, max_length), loader.line, loader.total_lines))
+            data_queue.put((*loader.get_data(), loader.line, loader.total_lines))
         data_queue.put((0, 0, 0, 0, 0))
         print("\nData fully loaded.\n")
         data_queue.join()
@@ -83,8 +83,6 @@ def train(RANK, WORLD_SIZE, DDP):
                 print(f"{loss.item() * N_BATCHES:.3f} {i + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
             del x, y, res, loss
         else:
-            print()
-
             nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
@@ -93,6 +91,7 @@ def train(RANK, WORLD_SIZE, DDP):
             step_time = time.time() - t0
             total_time = step_time + t0 - start_time
             if IS_MASTER:
+                print()
                 print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f}")
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {step / progress * step_time - total_time:.3f}s to go")
 

@@ -57,8 +57,9 @@ if __name__ == "__main__": # 构建编码器
     print("Loading encoder from encoder.json")
     encoder = Encoder.from_path("encoder.json")
     """
-    # encoder = Encoder.from_path("encoder.json")
-    # print(codes := encoder.encode("这是一个测试")) # Python3.8+!!!!!
-    # print(encoder.decode(codes + [1]))
-    # print(encoder.vocab_size)
+    encoder = Encoder.from_path("encoder.json")
+    codes = encoder.encode("这是一个测试")
+    print(codes)
+    print(encoder.decode(codes + [1]))
+    print(encoder.vocab_size)
 
