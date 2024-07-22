@@ -1,6 +1,5 @@
 import json
 import os
-from tqdm import tqdm
 from config import *
 from encoder import Encoder
 import multiprocessing
@@ -14,8 +13,6 @@ def preprocess(fname: str, length: int, encoder: Encoder, target: str):
 
     q = multiprocessing.Queue()
     def _preprocess(lines: list, length: int, encoder: Encoder, target: str, rank: int):
-        if rank == 0:
-            lines = tqdm(lines)
         preprocessed_lines = []
         for line in lines:
             content = json.loads(line)["content"]
@@ -48,9 +45,9 @@ def preprocess(fname: str, length: int, encoder: Encoder, target: str):
     for i in range(16):
         q.get()
     all_lines = []
-    print("Joining files together...")
-    for rank in tqdm(range(16)):
+    for rank in range(16):
         all_lines += open(target + str(rank)).readlines()
+        all_lines[-1] += "\n"
         os.remove(target + str(rank))
     with open(target, "w") as f:
         f.write("".join(all_lines))

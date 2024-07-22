@@ -67,21 +67,21 @@ def train(RANK, WORLD_SIZE, DDP):
             x, y, n_tokens, current_line, total_lines = data_queue.get()
             data_queue.task_done()
             if isinstance(x, int):
+                raise Exception
                 ended = True
                 step -= 1
                 break
+
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             res = llm(x)
-            try:
-                loss = F.cross_entropy(res.view(-1, res.size(-1)), y.view(-1), reduction="sum") / n_tokens / N_BATCHES
-            except RuntimeError:
-                break
+            loss = F.cross_entropy(res.view(-1, res.size(-1)), y.view(-1), reduction="sum") / n_tokens / N_BATCHES
             loss.backward()
             total_loss += loss.item()
+            
             if IS_MASTER:
                 print(f"{loss.item() * N_BATCHES:.3f} {i + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
-            del x, y, res, loss
+            del x, y, res, loss, n_tokens
         else:
             nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
             optimizer.step()
@@ -102,4 +102,5 @@ def train(RANK, WORLD_SIZE, DDP):
         torch.save(llm.state_dict(), f"llm{step}_state_dict_{total_loss}.pt")
         print("Training successfully ended.")
 
-    dist.destroy_process_group()
+    if DDP:
+        dist.destroy_process_group()

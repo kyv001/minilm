@@ -2,14 +2,14 @@ import torch
 import os
 
 # DEVICE = "cpu"
-MAX_LENGTH = 1600
+MAX_LENGTH = 1500
 MODEL_DIM = 768
 N_HEADS = 12
-N_BLOCKS = 20
+N_BLOCKS = 16
 DROPOUT = 0.1
 
 TRAIN = True
-BATCH_SIZE = 4
+BATCH_SIZE = 2
 N_BATCHES = 100
 WARMUP_STEPS = 1000
 MAX_LEARINGRATE = 6e-4
@@ -21,7 +21,7 @@ USE_TORCH2 = False # 如果安装了requirements.txt而不是requirements_old.tx
 # Pretraining data
 NEWS_FILES = list(map(lambda x: "WanJuan-News/" + x, os.listdir("WanJuan-News/")))
 WEBT_FILES = list(map(lambda x: "WanJuan-WebText/" + x, os.listdir("WanJuan-WebText/")))
-PRETRAIN_DATA = NEWS_FILES
+PRETRAIN_DATA = ["tiny-example-news.jsonl"]
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 
