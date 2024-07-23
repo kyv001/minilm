@@ -1,3 +1,4 @@
+import collections
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
@@ -20,7 +21,15 @@ if __name__ == "__main__":
         DEVICE = "cuda"
         encoder = Encoder.from_path("encoder.json")
         llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT, DEVICE).to(DEVICE)
-        state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
+        if USE_TORCH2:
+            torch.set_float32_matmul_precision('high')
+            print("Compiling module")
+            llm = torch.compile(llm) # torch 2+
+            print("Compiled successfully")
+        module_state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
+        state_dict = collections.OrderedDict()
+        for k in module_state_dict.keys():
+            state_dict[k[7:]] = module_state_dict[k]
         llm.load_state_dict(state_dict)
         llm.eval()
         with torch.no_grad():
