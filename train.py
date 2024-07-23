@@ -33,10 +33,14 @@ def train(RANK, WORLD_SIZE, DDP):
         print("Compiled successfully")
     if WORLD_SIZE > 1:
         llm = DDP(llm, device_ids=[RANK])
+
     data_queue = multiprocessing.JoinableQueue()
-    def load_data(fname, encoder, batch_size, max_length):
-        loader = WanJuanLoader(fname, encoder, batch_size, max_length)
+    print(f"\nLoading data {PRETRAIN_DATA[RANK]}.\n")
+    loader = WanJuanLoader(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
+    def load_data(loader):
+        n = 0
         while not loader.ended:
+            n += 1
             data_queue.put((*loader.get_data(), loader.line, loader.total_lines))
         data_queue.put((0, 0, 0, 0, 0))
         print("\nData fully loaded.\n")
@@ -44,9 +48,10 @@ def train(RANK, WORLD_SIZE, DDP):
     data_proc = multiprocessing.Process(
         target=load_data,
         name="Data Loader",
-        args=(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
+        args=(loader, )
     )
     data_proc.start()
+
     if USE_TORCH2:
         optimizer = optim.AdamW(llm.parameters(), fused=True) # torch 2+
     else:

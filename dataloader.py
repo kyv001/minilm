@@ -15,7 +15,8 @@ class WanJuanLoader:
             os.mkdir(fname + ".parts")
         parts = []
         lines = []
-        for line in open(fname):
+        print(f"Splitting {fname} into parts...", end="", flush=True)
+        for line in open(fname, errors="ignore"):
             lines.append(line)
             if len(lines) >= 100:
                 parts.append(lines)
@@ -27,6 +28,7 @@ class WanJuanLoader:
             with open(fname + f".parts/{len(parts)}.jsonl", "w") as f:
                 f.write("".join(lines))
             lines = []
+        print("done")
         self.n_parts = len(parts)
         self.total_lines = 100 * (self.n_parts - 1) + len(parts[-1])
         self.line = 0

@@ -9,8 +9,8 @@ N_BLOCKS = 16
 DROPOUT = 0.1
 
 TRAIN = True
-BATCH_SIZE = 2
-N_BATCHES = 100
+BATCH_SIZE = 16
+N_BATCHES = 12
 WARMUP_STEPS = 1000
 MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 600000
@@ -27,7 +27,7 @@ WEBT_FILES = []
 for name in os.listdir("WanJuan-WebText/"):
     if not name.endswith(".parts"):
         WEBT_FILES.append("WanJuan-WebText/" + name)
-PRETRAIN_DATA = NEWS_FILES
+PRETRAIN_DATA = [NEWS_FILES[0], WEBT_FILES[0]]
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 
