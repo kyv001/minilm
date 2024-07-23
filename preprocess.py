@@ -8,7 +8,7 @@ def preprocess(fname: str, length: int, encoder: Encoder, target: str):
     with open(fname) as f:
         lines = f.readlines()
     n_lines = len(lines)
-    ns_lines = [n_lines // 16] * 15
+    ns_lines = [n_lines // 8] * 7
     ns_lines.append(n_lines - sum(ns_lines))
 
     q = multiprocessing.Queue()
@@ -37,15 +37,15 @@ def preprocess(fname: str, length: int, encoder: Encoder, target: str):
             f.write("\n".join(preprocessed_lines))
         q.put(rank)
 
-    for rank in range(16):
+    for rank in range(8):
         i = sum(ns_lines[:rank])
         j = i + ns_lines[rank]
         p = multiprocessing.Process(target=_preprocess, args=(lines[i: j], length, encoder, target, rank))
         p.start()
-    for i in range(16):
+    for i in range(8):
         q.get()
     all_lines = []
-    for rank in range(16):
+    for rank in range(8):
         all_lines += open(target + str(rank)).readlines()
         all_lines[-1] += "\n"
         os.remove(target + str(rank))

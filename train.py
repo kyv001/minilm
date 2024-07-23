@@ -26,6 +26,11 @@ def train(RANK, WORLD_SIZE, DDP):
 
     encoder = Encoder.from_path("encoder.json")
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT, DEVICE).to(DEVICE)
+    if USE_TORCH2:
+        torch.set_float32_matmul_precision('high')
+        print("Compiling module")
+        llm = torch.compile(llm) # torch 2+
+        print("Compiled successfully")
     if WORLD_SIZE > 1:
         llm = DDP(llm, device_ids=[RANK])
     data_queue = multiprocessing.JoinableQueue()
@@ -42,7 +47,10 @@ def train(RANK, WORLD_SIZE, DDP):
         args=(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
     )
     data_proc.start()
-    optimizer = optim.AdamW(llm.parameters())# , fused=True) # torch 2+
+    if USE_TORCH2:
+        optimizer = optim.AdamW(llm.parameters(), fused=True) # torch 2+
+    else:
+        optimizer = optim.AdamW(llm.parameters()) # torch 2+
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     step = 0
     if PRETRAINED_STATE_DICT_PATH:

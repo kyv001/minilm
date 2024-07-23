@@ -15,13 +15,19 @@ WARMUP_STEPS = 1000
 MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 600000
 MIN_LEARINGRATE = 6e-5
-USE_TORCH2 = False # 如果安装了requirements.txt而不是requirements_old.txt，改为True
+USE_TORCH2 = True # 如果安装了requirements.txt而不是requirements_old.txt，改为True
 # 以上除DEVICE外皆为超参数
 
 # Pretraining data
-NEWS_FILES = list(map(lambda x: "WanJuan-News/" + x, os.listdir("WanJuan-News/")))
-WEBT_FILES = list(map(lambda x: "WanJuan-WebText/" + x, os.listdir("WanJuan-WebText/")))
-PRETRAIN_DATA = ["tiny-example-news.jsonl"]
+NEWS_FILES = []
+for name in os.listdir("WanJuan-News/"):
+    if not name.endswith(".parts"):
+        NEWS_FILES.append("WanJuan-News/" + name)
+WEBT_FILES = []
+for name in os.listdir("WanJuan-WebText/"):
+    if not name.endswith(".parts"):
+        WEBT_FILES.append("WanJuan-WebText/" + name)
+PRETRAIN_DATA = NEWS_FILES
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 

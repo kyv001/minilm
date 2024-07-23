@@ -9,11 +9,6 @@ from lr_schedule import get_schedule
 from train import train
 
 if __name__ == "__main__":
-    # torch.set_float32_matmul_precision('high') # Ampere only
-    if USE_TORCH2:
-        print("Compiling module")
-        llm = torch.compile(llm) # torch 2+
-        print("Compiled successfully")
     import os
     if TRAIN:
         DDP = os.environ.get("RANK", None) is not None
