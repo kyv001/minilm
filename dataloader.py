@@ -20,8 +20,9 @@ class WanJuanLoader:
             lines.append(line)
             if len(lines) >= 100:
                 parts.append(lines)
-                with open(fname + f".parts/{len(parts)}.jsonl", "w") as f:
-                    f.write("".join(lines))
+                if not os.path.exists(fname + f".parts/{len(parts)}.jsonl"):
+                    with open(fname + f".parts/{len(parts)}.jsonl", "w") as f:
+                        f.write("".join(lines))
                 lines = []
         if lines:
             parts.append(lines)

@@ -88,7 +88,12 @@ def train(RANK, WORLD_SIZE, DDP):
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             res = llm(x)
-            loss = F.cross_entropy(res.view(-1, res.size(-1)), y.view(-1), reduction="sum") / n_tokens / N_BATCHES
+            loss = F.cross_entropy(
+                res.view(-1, res.size(-1)),
+                y.view(-1),
+                reduction="sum",
+                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
+            ) / n_tokens / N_BATCHES
             loss.backward()
             total_loss += loss.item()
             
