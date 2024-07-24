@@ -5,14 +5,16 @@ class Encoder:
         self.vocab = special_tokens + vocab + [""]
         self.unk = len(self.vocab) - 1
         self.vocab_size = len(self.vocab)
-        print("Building vocab dict...", end="")
-        self.vc_dict = {a[1]: a[0] for a in enumerate(self.vocab)}
-        print("Done")
 
     def encode(self, string: str) -> list:
         codes = []
         for char in string:
-            codes.append(self.vc_dict.get(char, self.unk))
+            for i in range(len(self.vocab)):
+                if self.vocab[i] == char:
+                    codes.append(i)
+                    break
+            else:
+                codes.append(self.unk)
         return codes
 
     def decode(self, codes: list) -> str:
