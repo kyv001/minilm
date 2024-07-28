@@ -37,18 +37,18 @@ def train(RANK, WORLD_SIZE, DDP):
     data_queue = multiprocessing.JoinableQueue()
     print(f"\nLoading data {PRETRAIN_DATA[RANK]}.\n")
     loader = WanJuanLoader(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
-    def load_data(loader):
+    def load_data(loader, queue):
         n = 0
         while not loader.ended:
             n += 1
-            data_queue.put((*loader.get_data(), loader.line, loader.total_lines))
-        data_queue.put((0, 0, 0, 0, 0))
+            queue.put((*loader.get_data(), loader.line, loader.total_lines))
+        queue.put((0, 0, 0, 0, 0))
         print("\nData fully loaded.\n")
-        data_queue.join()
+        queue.join()
     data_proc = multiprocessing.Process(
         target=load_data,
         name="Data Loader",
-        args=(loader, )
+        args=(loader, data_queue)
     )
     data_proc.start()
 
@@ -80,7 +80,6 @@ def train(RANK, WORLD_SIZE, DDP):
             x, y, n_tokens, current_line, total_lines = data_queue.get()
             data_queue.task_done()
             if isinstance(x, int):
-                raise Exception
                 ended = True
                 step -= 1
                 break
@@ -120,5 +119,6 @@ def train(RANK, WORLD_SIZE, DDP):
         torch.save(llm.state_dict(), f"llm{step}_state_dict_{total_loss}.pt")
         print("Training successfully ended.")
 
+    data_proc.join()
     if DDP:
         dist.destroy_process_group()
