@@ -33,10 +33,21 @@ def train(RANK, WORLD_SIZE, DDP):
         print("Compiled successfully")
     if WORLD_SIZE > 1:
         llm = DDP(llm, device_ids=[RANK])
+    if PRETRAINED_STATE_DICT_PATH:
+        import collections
+        raw_sd = torch.load(PRETRAINED_STATE_DICT_PATH)
+        if DDP:
+            llm.load_state_dict(raw_sd)
+        else:
+            sd = collections.OrderedDict()
+            for k in raw_sd.keys():
+                sd[k[7:]] = raw_sd[k]
+            llm.load_state_dict(sd)
 
-    data_queue = multiprocessing.JoinableQueue()
+    data_queue = multiprocessing.Queue(1000)
     print(f"\nLoading data {PRETRAIN_DATA[RANK]}.\n")
     loader = WanJuanLoader(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
+    loader.line = 4560 * BATCH_SIZE * N_BATCHES
     def load_data(loader, queue):
         n = 0
         while not loader.ended:
@@ -44,7 +55,8 @@ def train(RANK, WORLD_SIZE, DDP):
             queue.put((*loader.get_data(), loader.line, loader.total_lines))
         queue.put((0, 0, 0, 0, 0))
         print("\nData fully loaded.\n")
-        queue.join()
+        while True:
+            pass
     data_proc = multiprocessing.Process(
         target=load_data,
         name="Data Loader",
@@ -57,7 +69,7 @@ def train(RANK, WORLD_SIZE, DDP):
     else:
         optimizer = optim.AdamW(llm.parameters()) # torch 2+
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
-    step = 0
+    step = 4560
     if PRETRAINED_STATE_DICT_PATH:
         state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
         llm.load_state_dict(state_dict)
@@ -78,7 +90,6 @@ def train(RANK, WORLD_SIZE, DDP):
             llm.require_backward_grad_sync = (i == N_BATCHES - 1)
             t1 = time.time()
             x, y, n_tokens, current_line, total_lines = data_queue.get()
-            data_queue.task_done()
             if isinstance(x, int):
                 ended = True
                 step -= 1
