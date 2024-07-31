@@ -47,7 +47,7 @@ def train(RANK, WORLD_SIZE, DDP):
     data_queue = multiprocessing.Queue(1000)
     print(f"\nLoading data {PRETRAIN_DATA[RANK]}.\n")
     loader = WanJuanLoader(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
-    loader.line = 4560 * BATCH_SIZE * N_BATCHES
+    loader.line = 11680 * BATCH_SIZE * N_BATCHES
     def load_data(loader, queue):
         n = 0
         while not loader.ended:
@@ -69,12 +69,13 @@ def train(RANK, WORLD_SIZE, DDP):
     else:
         optimizer = optim.AdamW(llm.parameters()) # torch 2+
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
-    step = 4560
+    step = 11680
     if PRETRAINED_STATE_DICT_PATH:
         state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
         llm.load_state_dict(state_dict)
         del state_dict
     llm.train()
+    torch.autograd.set_detect_anomaly(True)
     ended = False
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
     start_time = time.time()
