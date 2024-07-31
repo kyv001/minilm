@@ -13,7 +13,7 @@ BATCH_SIZE = 8
 N_BATCHES = 24
 WARMUP_STEPS = 100
 MAX_LEARINGRATE = 6e-4
-TARGET_STEPS = 60000
+TARGET_STEPS = 30000
 MIN_LEARINGRATE = 6e-5
 USE_TORCH2 = True # 如果安装了requirements.txt而不是requirements_old.txt，改为True
 # 以上除DEVICE外皆为超参数
