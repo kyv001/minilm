@@ -10,5 +10,4 @@
 2、修改config.py中的TRAIN变量为False；
 3、运行python llm.py以进行推理（效果不会很好）；
 
-GPL-3.0
-<del>这是蜂群克隆计划的一部分</del>
+为什么这b模型不收敛？？？？
