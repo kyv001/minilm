@@ -6,13 +6,13 @@ class Encoder:
         self.vocab = special_tokens + vocab + [""]
         self.unk = len(self.vocab) - 1
         self.vocab_size = len(self.vocab)
-        self.vocab_dict = {index: name for (index, name) in enumerate(vocab)}
+        self.vocab_dict = {name: index for (index, name) in enumerate(vocab)}
 
     def encode(self, string: str) -> list:
-        return encode(self.vocab, string, self.unk)
+        return encode(self.vocab_dict, string, self.unk)
 
     def decode(self, codes: list) -> str:
-        return decode(self.vocab_dict, codes)
+        return decode(self.vocab, codes)
 
     def dump(self):
         parameters = {
