@@ -1,8 +1,13 @@
 __pycache__
 WanJuan-*
-note.txt
+*.txt
 venv
 *.jsonl
 *.pt
 *.preprocessed
 *.parts
+*.bin
+*.so
+*.c
+.vscode
+_encoder/build

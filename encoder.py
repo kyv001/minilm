@@ -1,28 +1,18 @@
 import json
+from _encoder import *
 
 class Encoder:
     def __init__(self, vocab: list, special_tokens: list):
         self.vocab = special_tokens + vocab + [""]
         self.unk = len(self.vocab) - 1
         self.vocab_size = len(self.vocab)
+        self.vocab_dict = {index: name for (index, name) in enumerate(vocab)}
 
     def encode(self, string: str) -> list:
-        codes = []
-        for char in string:
-            for i in range(len(self.vocab)):
-                if self.vocab[i] == char:
-                    codes.append(i)
-                    break
-            else:
-                codes.append(self.unk)
-        return codes
+        return encode(self.vocab, string, self.unk)
 
     def decode(self, codes: list) -> str:
-        string = ""
-        for code in codes:
-            if 0 <= code <= self.vocab_size - 1:
-                string += self.vocab[code]
-        return string
+        return decode(self.vocab_dict, codes)
 
     def dump(self):
         parameters = {
