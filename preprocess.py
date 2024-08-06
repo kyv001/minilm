@@ -1,57 +1,50 @@
-import json
-import os
+import math
+from tqdm import tqdm
 from config import *
 from encoder import Encoder
-import multiprocessing
 
-def preprocess(fname: str, length: int, encoder: Encoder, target: str):
-    with open(fname) as f:
-        lines = f.readlines()
-    n_lines = len(lines)
-    ns_lines = [n_lines // 8] * 7
-    ns_lines.append(n_lines - sum(ns_lines))
+def _get_contents(fname: str) -> str:
+    print("Extracting contents.")
+    out_fname = fname + ".contents.txt"
+    with open(fname) as f_in, open(out_fname, "a") as f_out:
+        for l in tqdm(f_in):
+            if len(l) > 40:
+                f_out.write(l[40:-3] + "\n")
+    return out_fname
 
-    q = multiprocessing.Queue()
-    def _preprocess(lines: list, length: int, encoder: Encoder, target: str, rank: int):
-        preprocessed_lines = []
-        for line in lines:
-            content = json.loads(line)["content"]
-            n_lines = len(content) // length
-            left = len(content) % length
-            for i in range(n_lines):
-                x = encoder.encode(content[i * length: (i + 1) * length])
-                if i == n_lines - 1 and not left:
-                    y = x[1: ] + [SPECIAL_TOKENS_IDS["<eos>"]]
-                else:
-                    y = x[1: ] + encoder.encode([content[(i + 1) * length]])
-                # print(encoder.decode(x))
-                # print(encoder.decode(y))
-                preprocessed_lines.append(json.dumps({"x": x, "y": y}))
-            if left:
-                x = encoder.encode(content[-left: ]) + [SPECIAL_TOKENS_IDS["<eos>"]] + [SPECIAL_TOKENS_IDS["<pad>"]] * (length - left - 1)
-                y = x[1: ] + [SPECIAL_TOKENS_IDS["<pad>"]]
-                # print(encoder.decode(x))
-                # print(encoder.decode(y))
-                preprocessed_lines.append(json.dumps({"x": x, "y": y}))
-        with open(target + str(rank), "w") as f:
-            f.write("\n".join(preprocessed_lines))
-        q.put(rank)
+def _get_lines(fname: str, max_length: int) -> str:
+    print("Splitting lines.")
+    out_fname = fname + ".lines.txt"
+    with open(fname) as f_in, open(out_fname, "a") as f_out:
+        for l in tqdm(f_in):
+            l = l[:-1]
+            length = len(l)
+            if length > 1:
+                for i in range(math.ceil(length / max_length)):
+                    batch = l[i * max_length: i * max_length + max_length]
+                    f_out.write(batch + "\n")
+    return out_fname
 
-    for rank in range(8):
-        i = sum(ns_lines[:rank])
-        j = i + ns_lines[rank]
-        p = multiprocessing.Process(target=_preprocess, args=(lines[i: j], length, encoder, target, rank))
-        p.start()
-    for i in range(8):
-        q.get()
-    all_lines = []
-    for rank in range(8):
-        all_lines += open(target + str(rank)).readlines()
-        all_lines[-1] += "\n"
-        os.remove(target + str(rank))
-    with open(target, "w") as f:
-        f.write("".join(all_lines))
+def _encode_lines(fname: str, encoder: Encoder, line_sep: str) -> str:
+    print("Encoding lines.")
+    out_fname = fname + ".encoded.bin"
+    with open(fname) as f_in, open(out_fname, "a") as f_out:
+        for l in tqdm(f_in):
+            l = l[:-1]
+            c = encoder.encode(l)
+            s = "".join(map(chr, c)) + line_sep
+            f_out.write(s)
+    return out_fname
+
+def preprocess(fname: str):
+    pass
 
 if __name__ == "__main__":
-    encoder = Encoder.from_path("encoder.json")
-    preprocess("WanJuan-News/news1.jsonl", 1600, encoder, "WanJuan-News/news1.jsonl.preprocessed.jsonl")
+    _encode_lines(
+        _get_lines(
+            _get_contents("WanJuan-News/part-006853-a894b46e.jsonl"),
+            MAX_LENGTH + 1
+        ),
+        Encoder.from_path("encoder.json"),
+        LINE_SEP
+    )

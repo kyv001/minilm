@@ -1,77 +1,58 @@
-import json
-import os
 import torch
+from tqdm import tqdm
+from torch.utils.data import Dataset
+from torch.nn.functional import pad
 from config import *
-from preprocess import preprocess
 
-class WanJuanLoader:
-    def __init__(self, fname, encoder, batch_size, length):
-        self.fname = fname
-        self.batch_size = batch_size
-        self.length = length
-        self.encoder = encoder
+class BinaryDataset(Dataset):
+    def __init__(self, path: str, line_sep: str):
+        byte_sep = line_sep.encode("utf-8")
+        self.lines = []
+        left = b""
+        with open(path, "rb") as f:
+            while True:
+                d = left + f.read(1024 * 1024)
+                if len(d) == 0:
+                    break
+                l = d.split(byte_sep)
+                self.lines.extend(l[:-1])
+                left = l[-1]
+    
+    def __getitem__(self, index: int) -> torch.Tensor:
+        l = self.lines[index].decode("utf-8")
+        c = list(map(ord, l))
+        return torch.tensor(c)
 
-        if not os.path.exists(fname + ".parts"):
-            os.mkdir(fname + ".parts")
-        parts = []
-        lines = []
-        print(f"Splitting {fname} into parts...", end="", flush=True)
-        for line in open(fname, errors="ignore"):
-            lines.append(line)
-            if len(lines) >= 100:
-                parts.append(lines)
-                if not os.path.exists(fname + f".parts/{len(parts)}.jsonl"):
-                    with open(fname + f".parts/{len(parts)}.jsonl", "w") as f:
-                        f.write("".join(lines))
-                lines = []
-        if lines:
-            parts.append(lines)
-            with open(fname + f".parts/{len(parts)}.jsonl", "w") as f:
-                f.write("".join(lines))
-            lines = []
-        print("done")
-        self.n_parts = len(parts)
-        self.total_lines = 100 * (self.n_parts - 1) + len(parts[-1])
-        self.line = 0
-        self.part_lines = {}
-        self.ended = False
-        del parts, lines
+    def __len__(self) -> int:
+        return len(self.lines)
 
-    def get_data(self):
-        x_l = []
-        y_l = []
-        for i in range(self.batch_size):
-            x, y = self.fetch_line()
-            x_l.append(torch.tensor(x))
-            y_l.append(torch.tensor(y))
-        x = torch.stack(x_l)
-        y = torch.stack(y_l)
-        n_tokens = sum(sum(x != SPECIAL_TOKENS_IDS["<pad>"])).item()
-        return x, y, n_tokens
+def collate_fn(batch: list[torch.Tensor]) -> tuple:
+    l_x = []
+    l_y = []
+    for line in batch:
+        if len(line) < MAX_LENGTH + 1:
+            line = torch.cat((line, SPECIAL_TOKENS_TENSORS["<eos>"].unsqueeze(0)))
+            line = pad(line, (0, MAX_LENGTH + 1 - len(line)), value=SPECIAL_TOKENS_IDS["<pad>"])
+        l_x.append(line[:-1])
+        l_y.append(line[1:])
+    x, y = torch.stack(l_x), torch.stack(l_x)
+    n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
+    return x, y, n_tokens
 
-    def fetch_line(self):
-        part = (self.line // 100) + 1
-        part_fname = self.fname + f".parts/{part}.jsonl"
-        preprocessed_part_fname = part_fname + ".preprocessed"
-        if not os.path.exists(preprocessed_part_fname):
-            preprocess(part_fname, self.length, self.encoder, preprocessed_part_fname)
-        if self.part_lines.get(part) is None:
-            with open(preprocessed_part_fname) as f:
-                self.part_lines[part] = f.readlines()
-        l = self.part_lines[part][self.line % 100]
-        j = json.loads(l)
-        x = j["x"]
-        y = j["y"]
-        self.line += 1
-        if self.line >= self.total_lines:
-            self.ended = True
-            self.line = 0
-        return x, y
 
 if __name__ == "__main__":
     from encoder import Encoder
-    encoder = Encoder.from_path("encoder.json")
-    loader = WanJuanLoader("tiny-example-news.jsonl", encoder, 5, 5)
-    while not loader.ended:
-        x, y, n = loader.get_data()
-        print(n)
+    from torch.utils.data import DataLoader
+    dts = BinaryDataset("WanJuan-News/part-006853-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
+    # dts = BinaryDataset("tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
+    print(len(dts))
+    d = dts[0]
+    e = Encoder.from_path("encoder.json")
+    print(d)
+    print(e.decode(list(d)))
+    print(len(e.decode(list(d))))
+    loader = DataLoader(dts, 5, True, collate_fn=collate_fn, num_workers=2)
+    
+    for x, y, n_tokens in loader:
+        print(x.shape, y.shape, n_tokens)
+        break
