@@ -31,7 +31,7 @@ class CausalSelfAttention(nn.Module):
             q, k, v,
             key_padding_mask=key_padding_mask,
             attn_mask=causal_mask,
-            # is_causal=True, # torch 2+
+            is_causal=True,
             need_weights=False
         )[0]
         return self.proj(x)

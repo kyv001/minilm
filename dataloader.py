@@ -35,7 +35,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple:
             line = pad(line, (0, MAX_LENGTH + 1 - len(line)), value=SPECIAL_TOKENS_IDS["<pad>"])
         l_x.append(line[:-1])
         l_y.append(line[1:])
-    x, y = torch.stack(l_x), torch.stack(l_x)
+    x, y = torch.stack(l_x), torch.stack(l_y)
     n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
     return x, y, n_tokens
 
@@ -43,7 +43,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple:
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("WanJuan-News/part-006853-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
+    dts = BinaryDataset("tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
     # dts = BinaryDataset("tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
     print(len(dts))
     d = dts[0]

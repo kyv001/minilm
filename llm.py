@@ -24,10 +24,7 @@ if __name__ == "__main__":
             llm = torch.compile(llm) # torch 2+
             print("Compiled successfully")
         module_state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
-        state_dict = collections.OrderedDict()
-        for k in module_state_dict.keys():
-            state_dict[k[7:]] = module_state_dict[k]
-        llm.load_state_dict(state_dict)
+        llm.load_state_dict(module_state_dict)
         llm.eval()
         with torch.no_grad():
             while True:

@@ -36,15 +36,15 @@ def _encode_lines(fname: str, encoder: Encoder, line_sep: str) -> str:
             f_out.write(s)
     return out_fname
 
-def preprocess(fname: str):
-    pass
+def preprocess(fname: str, max_length: int, encoder: Encoder, line_sep: str):
+    return _encode_lines(
+        _get_lines(
+            _get_contents(fname),
+            max_length
+        ),
+        encoder,
+        line_sep
+    )
 
 if __name__ == "__main__":
-    _encode_lines(
-        _get_lines(
-            _get_contents("WanJuan-News/part-006853-a894b46e.jsonl"),
-            MAX_LENGTH + 1
-        ),
-        Encoder.from_path("encoder.json"),
-        LINE_SEP
-    )
+    preprocess("tiny-example-news.jsonl", MAX_LENGTH + 1, Encoder.from_path("encoder.json"), LINE_SEP)

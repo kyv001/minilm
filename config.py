@@ -2,24 +2,24 @@ import torch
 import os
 
 # DEVICE = "cpu"
-MAX_LENGTH = 1500
-MODEL_DIM = 768
-N_HEADS = 12
-N_BLOCKS = 16
+MAX_LENGTH = 800
+MODEL_DIM = 256
+N_HEADS = 4
+N_BLOCKS = 8
 DROPOUT = 0.1
 
 TRAIN = False
 BATCH_SIZE = 8
-N_BATCHES = 24
-WARMUP_STEPS = 100
+N_BATCHES = 4
+WARMUP_STEPS = 0
 MAX_LEARINGRATE = 6e-4
-TARGET_STEPS = 30000
-MIN_LEARINGRATE = 6e-5
+TARGET_STEPS = 3
+MIN_LEARINGRATE = 6e-4
 USE_TORCH2 = True # 如果安装了requirements.txt而不是requirements_old.txt，改为True
 # 以上除DEVICE外皆为超参数
 
 # Pretraining data
-PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin"
+PRETRAIN_DATA = "tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin"
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 
@@ -35,7 +35,7 @@ SPECIAL_TOKENS_TENSORS = {
 }
 LINE_SEP = chr(9000)
 
-PRETRAINED_STATE_DICT_PATH = None
+PRETRAINED_STATE_DICT_PATH = "llm513_state_dict_5.627837300300598.pt"
 
 __all__ = [
     "MAX_LENGTH",
@@ -51,8 +51,6 @@ __all__ = [
     "TARGET_STEPS",
     "MIN_LEARINGRATE",
     "USE_TORCH2",
-    "NEWS_FILES",
-    "WEBT_FILES",
     "PRETRAIN_DATA",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",

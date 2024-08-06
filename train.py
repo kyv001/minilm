@@ -3,120 +3,104 @@ import multiprocessing
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from config import *
-from dataloader import WanJuanLoader
+from dataloader import BinaryDataset, collate_fn
 from encoder import Encoder
 from modules import LLM
 from lr_schedule import get_schedule
 
-def train(RANK, WORLD_SIZE, DDP):
+def train(RANK, WORLD_SIZE, USE_DDP):
+    # 设置进程内超参数和选项
     global BATCH_SIZE
-    print(f"train({RANK}, {WORLD_SIZE}, {DDP})")
-    if DDP:
+    print(f"train({RANK}, {WORLD_SIZE}, {USE_DDP})")
+    if USE_DDP:
         import torch.distributed as dist
         from torch.nn.parallel import DistributedDataParallel as DDP
         dist.init_process_group(backend="nccl")
     DEVICE = f"cuda:{RANK}"
     torch.cuda.set_device(DEVICE)
-    IS_MASTER = RANK == 0
+    IS_MASTER = (RANK == 0)
     BATCH_SIZE //= WORLD_SIZE
     if IS_MASTER:
         print(f"{BATCH_SIZE} lines per batch.")
         print(f"{N_BATCHES} batches per step.")
 
+    # 构建编码器
     encoder = Encoder.from_path("encoder.json")
+    # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT, DEVICE).to(DEVICE)
-    if USE_TORCH2:
+    if USE_TORCH2: # 编译模型加快速度
         torch.set_float32_matmul_precision('high')
         print("Compiling module")
         llm = torch.compile(llm) # torch 2+
         print("Compiled successfully")
     if WORLD_SIZE > 1:
-        llm = DDP(llm, device_ids=[RANK])
+        llm = DDP(llm, device_ids=[RANK]) # 模型将模型分布到各个显卡上
     if PRETRAINED_STATE_DICT_PATH:
         import collections
         raw_sd = torch.load(PRETRAINED_STATE_DICT_PATH)
-        if DDP:
+        if not USE_DDP:
             llm.load_state_dict(raw_sd)
         else:
-            sd = collections.OrderedDict()
+            sd = collections.OrderedDict() # 不使用DDP需要去除DDP加上的"module."前缀
             for k in raw_sd.keys():
-                sd[k[7:]] = raw_sd[k]
+                sd["module." + k] = raw_sd[k]
             llm.load_state_dict(sd)
-
-    data_queue = multiprocessing.Queue(1000)
-    print(f"\nLoading data {PRETRAIN_DATA[RANK]}.\n")
-    loader = WanJuanLoader(PRETRAIN_DATA[RANK], encoder, BATCH_SIZE, MAX_LENGTH)
-    loader.line = 11680 * BATCH_SIZE * N_BATCHES
-    def load_data(loader, queue):
-        n = 0
-        while not loader.ended:
-            n += 1
-            queue.put((*loader.get_data(), loader.line, loader.total_lines))
-        queue.put((0, 0, 0, 0, 0))
-        print("\nData fully loaded.\n")
-        while True:
-            pass
-    data_proc = multiprocessing.Process(
-        target=load_data,
-        name="Data Loader",
-        args=(loader, data_queue)
-    )
-    data_proc.start()
-
+    llm.train()
+    # 构建优化器
     if USE_TORCH2:
         optimizer = optim.AdamW(llm.parameters(), fused=True) # torch 2+
     else:
-        optimizer = optim.AdamW(llm.parameters()) # torch 2+
+        optimizer = optim.AdamW(llm.parameters())
+    # 构建学习率调度器
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
-    step = 11680
-    if PRETRAINED_STATE_DICT_PATH:
-        state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
-        llm.load_state_dict(state_dict)
-        del state_dict
-    llm.train()
-    torch.autograd.set_detect_anomaly(True)
-    ended = False
+    # 构建数据加载器
+    loader = DataLoader(BinaryDataset(PRETRAIN_DATA, LINE_SEP), shuffle=True, num_workers=3, collate_fn=collate_fn)
+
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
     start_time = time.time()
-    while not ended:
-        t0 = time.time()
-        step += 1
+    step = 342
+    microstep = 0
+    total_microsteps = len(loader)
+    torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
+    for x, y, n_tokens in loader:
+        if microstep % N_BATCHES == 0: # 一次完整的学习的开始
+            t0 = time.time()
+            step += 1
+            lr = schedule(step)
+            for group in optimizer.param_groups:
+                group["lr"] = lr
+            total_loss = 0
+        
+        if USE_DDP:                                                                   # 多卡学习中，这是否是一次完整
+            llm.require_backward_grad_sync = (microstep % N_BATCHES == N_BATCHES - 1) # 的学习中的最后一次反向传播？
+                                                                                      # 是则需要进行多卡同步
+        t1 = time.time() # 开始一次反向传播
 
-        lr = schedule(step)
-        for group in optimizer.param_groups:
-            group["lr"] = lr
-        total_loss = 0
-        for i in range(N_BATCHES):
-            llm.require_backward_grad_sync = (i == N_BATCHES - 1)
-            t1 = time.time()
-            x, y, n_tokens, current_line, total_lines = data_queue.get()
-            if isinstance(x, int):
-                ended = True
-                step -= 1
-                break
+        x = x.to(DEVICE)
+        y = y.to(DEVICE)
+        res = llm(x)
+        loss = F.cross_entropy(
+            res.view(-1, res.size(-1)),
+            y.view(-1),
+            reduction="sum",
+            ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
+        ) / n_tokens / N_BATCHES
+        loss.backward()
+        total_loss += loss.item()
 
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
-            res = llm(x)
-            loss = F.cross_entropy(
-                res.view(-1, res.size(-1)),
-                y.view(-1),
-                reduction="sum",
-                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-            ) / n_tokens / N_BATCHES
-            loss.backward()
-            total_loss += loss.item()
-            
-            if IS_MASTER:
-                print(f"{loss.item() * N_BATCHES:.3f} {i + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
-            del x, y, res, loss, n_tokens
-        else:
+        if IS_MASTER:
+            print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
+        del x, y, res, loss, n_tokens # 结束一次反向传播
+
+        microstep += 1
+        if microstep % N_BATCHES == 0: # 一次完整的学习的结束
             nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
 
-            progress = current_line / total_lines
+            progress = microstep / total_microsteps
             step_time = time.time() - t0
             total_time = step_time + t0 - start_time
             if IS_MASTER:
@@ -127,10 +111,10 @@ def train(RANK, WORLD_SIZE, DDP):
                 if step % 20 == 0:
                     torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
                     print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
+
     if IS_MASTER:
         torch.save(llm.state_dict(), f"llm{step}_state_dict_{total_loss}.pt")
         print("Training successfully ended.")
-
-    data_proc.join()
-    if DDP:
+        
+    if USE_DDP:
         dist.destroy_process_group()
