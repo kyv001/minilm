@@ -8,7 +8,7 @@ N_HEADS = 12
 N_BLOCKS = 16
 DROPOUT = 0.1
 
-TRAIN = True
+TRAIN = False
 BATCH_SIZE = 8
 N_BATCHES = 24
 WARMUP_STEPS = 100
@@ -19,15 +19,7 @@ USE_TORCH2 = True # 如果安装了requirements.txt而不是requirements_old.txt
 # 以上除DEVICE外皆为超参数
 
 # Pretraining data
-NEWS_FILES = []
-for name in os.listdir("WanJuan-News/"):
-    if not name.endswith(".parts"):
-        NEWS_FILES.append("WanJuan-News/" + name)
-WEBT_FILES = []
-for name in os.listdir("WanJuan-WebText/"):
-    if not name.endswith(".parts"):
-        WEBT_FILES.append("WanJuan-WebText/" + name)
-PRETRAIN_DATA = [NEWS_FILES[0], WEBT_FILES[0]]
+PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin"
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 
@@ -41,8 +33,9 @@ SPECIAL_TOKENS_TENSORS = {
     token_name: torch.tensor(SPECIAL_TOKENS_IDS[token_name])
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
+LINE_SEP = chr(9000)
 
-PRETRAINED_STATE_DICT_PATH = "checkpoint.pt"
+PRETRAINED_STATE_DICT_PATH = None
 
 __all__ = [
     "MAX_LENGTH",
@@ -64,5 +57,6 @@ __all__ = [
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
-    "PRETRAINED_STATE_DICT_PATH"
+    "LINE_SEP",
+    "PRETRAINED_STATE_DICT_PATH",
 ]
