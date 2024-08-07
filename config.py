@@ -8,17 +8,17 @@ N_HEADS = 6
 N_BLOCKS = 12
 DROPOUT = 0.02
 
-TRAIN = True
-BATCH_SIZE = 5
-N_BATCHES = 80
+TRAIN = False
+BATCH_SIZE = 4
+N_BATCHES = 100
 WARMUP_STEPS = 100
 MAX_LEARINGRATE = 6e-4
-TARGET_STEPS = 100000
+TARGET_STEPS = 10000
 MIN_LEARINGRATE = 6e-5
-USE_TORCH2 = True # 如果安装了requirements.txt而不是requirements_old.txt，改为True
-# 以上除DEVICE外皆为超参数
+USE_TORCH2 = True
+# 以上除DEVICE和USE_TORCH2外皆为超参数
 
-# Pretraining data
+# 预训练数据路径（*.jsonl.contents.txt.lines.txt.encoded.bin）
 PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin"
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
