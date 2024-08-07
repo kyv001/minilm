@@ -56,11 +56,17 @@ def train(RANK, WORLD_SIZE, USE_DDP):
     # 构建学习率调度器
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     # 构建数据加载器
-    loader = DataLoader(BinaryDataset(PRETRAIN_DATA, LINE_SEP), shuffle=True, num_workers=3, collate_fn=collate_fn)
+    loader = DataLoader(
+        BinaryDataset(PRETRAIN_DATA, LINE_SEP),
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=3,
+        collate_fn=collate_fn
+    )
 
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
     start_time = time.time()
-    step = 342
+    step = 0
     microstep = 0
     total_microsteps = len(loader)
     torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
@@ -84,15 +90,15 @@ def train(RANK, WORLD_SIZE, USE_DDP):
         loss = F.cross_entropy(
             res.view(-1, res.size(-1)),
             y.view(-1),
-            reduction="sum",
+            reduction="mean",
             ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-        ) / n_tokens / N_BATCHES
+        ) / N_BATCHES
         loss.backward()
         total_loss += loss.item()
 
         if IS_MASTER:
             print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
-        del x, y, res, loss, n_tokens # 结束一次反向传播
+        del x, y, res, loss # 结束一次反向传播
 
         microstep += 1
         if microstep % N_BATCHES == 0: # 一次完整的学习的结束
@@ -105,7 +111,7 @@ def train(RANK, WORLD_SIZE, USE_DDP):
             total_time = step_time + t0 - start_time
             if IS_MASTER:
                 print()
-                print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f}")
+                print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{n_tokens}")
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {step / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:
