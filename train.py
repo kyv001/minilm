@@ -30,6 +30,7 @@ def train(RANK, WORLD_SIZE, USE_DDP):
     encoder = Encoder.from_path("encoder.json")
     # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT, DEVICE).to(DEVICE)
+    print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
     if USE_TORCH2: # 编译模型加快速度
         torch.set_float32_matmul_precision('high')
         print("Compiling module")
