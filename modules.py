@@ -16,32 +16,36 @@ class MLP(nn.Module):
         return self.proj(x)
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, dim, n_heads, dropout, device):
+    def __init__(self, dim, max_length, n_heads, dropout, device):
         super().__init__()
         self.device = device
-        self.linear = nn.Linear(dim, dim * 3, bias=False)
+        self.q_proj = nn.Linear(dim, dim, bias=False)
+        self.k_proj = nn.Linear(dim, dim, bias=False)
+        self.v_proj = nn.Linear(dim, dim, bias=False)
         self.mha = nn.MultiheadAttention(dim, n_heads, dropout, batch_first=True)
         self.proj = nn.Linear(dim, dim)
+        causal_mask = torch.tril(torch.ones((max_length, max_length))).to(self.device) == 0
+        self.register_buffer("causal_mask", causal_mask)
 
     def forward(self, x, key_padding_mask):
-        qkv = self.linear(x)
-        q, k, v = qkv.split(qkv.size(2) // 3, 2)
-        causal_mask = torch.tril(torch.ones((x.size(1), x.size(1)))).to(self.device) == 0
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
         x = self.mha(
             q, k, v,
             key_padding_mask=key_padding_mask,
-            attn_mask=causal_mask,
+            attn_mask=self.causal_mask[:x.size(1), :x.size(1)],
             is_causal=True,
             need_weights=False
         )[0]
         return self.proj(x)
 
 class Block(nn.Module):
-    def __init__(self, dim, n_heads, dropout, device):
+    def __init__(self, dim, max_length, n_heads, dropout, device):
         super().__init__()
         self.device = device
         self.ln1 = nn.LayerNorm(dim)
-        self.attn = CausalSelfAttention(dim, n_heads, dropout, device)
+        self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout, device)
         self.ln2 = nn.LayerNorm(dim)
         self.mlp = MLP(dim, device)
 
@@ -57,7 +61,7 @@ class LLM(nn.Module):
         self.wte = nn.Embedding(vocab_size, dim)
         self.pe = nn.Embedding(max_length, dim)
         self.blocks = nn.ModuleList([
-            Block(dim, n_heads, dropout, device) for _ in range(n_blocks)
+            Block(dim, max_length, n_heads, dropout, device) for _ in range(n_blocks)
         ])
         self.ln = nn.LayerNorm(dim)
         self.lmhead = nn.Linear(dim, vocab_size)
