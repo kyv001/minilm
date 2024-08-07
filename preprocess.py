@@ -47,4 +47,9 @@ def preprocess(fname: str, max_length: int, encoder: Encoder, line_sep: str):
     )
 
 if __name__ == "__main__":
-    preprocess("tiny-example-news.jsonl", MAX_LENGTH + 1, Encoder.from_path("encoder.json"), LINE_SEP)
+    import sys
+    if len(sys.argv) <= 1:
+        print("usage: python preprocess.py <path>")
+        exit(1)
+    fname = sys.argv[-1]
+    preprocess(fname, MAX_LENGTH + 1, Encoder.from_path("encoder.json"), LINE_SEP)
