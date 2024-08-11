@@ -17,7 +17,7 @@ if __name__ == "__main__":
     else:
         DEVICE = "cuda"
         encoder = Encoder.from_path("encoder.json")
-        llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT, DEVICE).to(DEVICE)
+        llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, 0, DEVICE).to(DEVICE)
         if USE_TORCH2:
             torch.set_float32_matmul_precision('high')
             print("Compiling module")
@@ -34,8 +34,9 @@ if __name__ == "__main__":
                     while True:
                         try:
                             y = F.softmax(llm(x)[:, -1, :], dim=-1)
-                            probs, indices = torch.topk(y, 15, dim=-1)
-                            token = torch.multinomial(probs, 1)
+                            # probs, indices = torch.topk(y, 1, dim=-1)
+                            # token = torch.multinomial(probs, 1)
+                            token = torch.argmax(y.squeeze()).unsqueeze(0).unsqueeze(0)
                             x = torch.cat([x, token], dim=1)
                             code = int(token[0].item())
                             if code == SPECIAL_TOKENS_IDS["<eos>"]:
