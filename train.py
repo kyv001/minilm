@@ -61,13 +61,13 @@ def train(RANK, WORLD_SIZE, USE_DDP):
         BinaryDataset(PRETRAIN_DATA, LINE_SEP),
         batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=3,
+        num_workers=4,
         collate_fn=collate_fn
     )
 
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
     start_time = time.time()
-    step = 0
+    step = START_STEP
     microstep = 0
     total_microsteps = len(loader)
     torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
@@ -113,7 +113,7 @@ def train(RANK, WORLD_SIZE, USE_DDP):
             if IS_MASTER:
                 print()
                 print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{n_tokens}")
-                print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {step / progress * step_time - total_time:.3f}s to go")
+                print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:
                     torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
