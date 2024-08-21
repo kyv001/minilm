@@ -2,15 +2,15 @@ import torch
 import os
 
 # DEVICE = "cpu"
-MAX_LENGTH = 800
+MAX_LENGTH = 512
 MODEL_DIM = 768
 N_HEADS = 6
 N_BLOCKS = 12
 DROPOUT = 0.02
 
 TRAIN = True
-BATCH_SIZE = 2
-N_BATCHES = 200
+BATCH_SIZE = 4
+N_BATCHES = 100
 WARMUP_STEPS = 100
 MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 10000
@@ -19,7 +19,7 @@ USE_TORCH2 = True
 # 以上除DEVICE和USE_TORCH2外皆为超参数
 
 # 预训练数据路径（*.jsonl.contents.txt.lines.txt.encoded.bin）
-PRETRAIN_DATA = "WanJuan-WebText/part-000036-a894b46e.jsonl.contents.txt.lines.txt.encoded.bin"
+PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.bin"
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
 
@@ -33,10 +33,9 @@ SPECIAL_TOKENS_TENSORS = {
     token_name: torch.tensor(SPECIAL_TOKENS_IDS[token_name])
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
-LINE_SEP = chr(9000)
 
-PRETRAINED_STATE_DICT_PATH = "llm2760_state_dict6.170141749083996.pt"
-START_STEP = 2760
+PRETRAINED_STATE_DICT_PATH = None
+START_STEP = 0
 
 __all__ = [
     "MAX_LENGTH",
@@ -56,7 +55,6 @@ __all__ = [
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
-    "LINE_SEP",
     "PRETRAINED_STATE_DICT_PATH",
     "START_STEP"
 ]

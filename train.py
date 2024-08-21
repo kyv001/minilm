@@ -36,18 +36,12 @@ def train(RANK, WORLD_SIZE, USE_DDP):
         print("Compiling module")
         llm = torch.compile(llm) # torch 2+
         print("Compiled successfully")
-    if WORLD_SIZE > 1:
-        llm = DDP(llm, device_ids=[RANK]) # 模型将模型分布到各个显卡上
     if PRETRAINED_STATE_DICT_PATH:
         import collections
-        raw_sd = torch.load(PRETRAINED_STATE_DICT_PATH)
-        if not USE_DDP:
-            llm.load_state_dict(raw_sd)
-        else:
-            sd = collections.OrderedDict() # 不使用DDP需要去除DDP加上的"module."前缀
-            for k in raw_sd.keys():
-                sd["module." + k] = raw_sd[k]
-            llm.load_state_dict(sd)
+        sd = torch.load(PRETRAINED_STATE_DICT_PATH)
+        llm.load_state_dict(sd)
+    if WORLD_SIZE > 1:
+        llm = DDP(llm, device_ids=[RANK]) # 将模型分布到各个显卡上
     llm.train()
     # 构建优化器
     if USE_TORCH2:
@@ -58,9 +52,9 @@ def train(RANK, WORLD_SIZE, USE_DDP):
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     # 构建数据加载器
     loader = DataLoader(
-        BinaryDataset(PRETRAIN_DATA, LINE_SEP),
+        BinaryDataset(PRETRAIN_DATA, MAX_LENGTH),
         batch_size=BATCH_SIZE,
-        shuffle=True,
+        shuffle=False,
         num_workers=4,
         collate_fn=collate_fn
     )

@@ -22,22 +22,13 @@ class CausalSelfAttention(nn.Module):
         self.q_proj = nn.Linear(dim, dim, bias=False)
         self.k_proj = nn.Linear(dim, dim, bias=False)
         self.v_proj = nn.Linear(dim, dim, bias=False)
-        self.mha = nn.MultiheadAttention(dim, n_heads, dropout, batch_first=True)
         self.proj = nn.Linear(dim, dim)
-        causal_mask = torch.tril(torch.ones((max_length, max_length))).to(self.device) == 0
-        self.register_buffer("causal_mask", causal_mask)
 
     def forward(self, x, key_padding_mask):
         q = self.q_proj(x)
         k = self.k_proj(x)
         v = self.v_proj(x)
-        x = self.mha(
-            q, k, v,
-            key_padding_mask=key_padding_mask,
-            attn_mask=self.causal_mask[:x.size(1), :x.size(1)],
-            is_causal=True,
-            need_weights=False
-        )[0]
+        x = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
         return self.proj(x)
 
 class Block(nn.Module):
