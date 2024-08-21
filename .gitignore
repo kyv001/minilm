@@ -4,10 +4,9 @@ WanJuan-*
 venv
 *.jsonl
 *.pt
-*.preprocessed
-*.parts
 *.bin
 *.so
 *.c
 .vscode
 _encoder/build
+pretrained*

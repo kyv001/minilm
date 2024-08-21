@@ -1,30 +1,25 @@
 import torch
+import numpy as np
 from tqdm import tqdm
 from torch.utils.data import Dataset
 from torch.nn.functional import pad
 from config import *
 
 class BinaryDataset(Dataset):
-    def __init__(self, path: str, line_sep: str):
-        byte_sep = line_sep.encode("utf-8")
-        self.lines = []
-        left = b""
+    def __init__(self, path: str, max_length: int):
         with open(path, "rb") as f:
-            while True:
-                d = left + f.read(1024 * 1024)
-                if len(d) == 0:
-                    break
-                l = d.split(byte_sep)
-                self.lines.extend(l[:-1])
-                left = l[-1]
+            array = np.fromfile(path, dtype=np.int16)
+        full_length = array.size
+        self.n_lines = full_length // (max_length + 1)
+        length = self.n_lines * (max_length + 1)
+        array = array[:length] # 裁剪到填满每一行
+        self.data = torch.from_numpy(array).view(-1, max_length + 1)
     
     def __getitem__(self, index: int) -> torch.Tensor:
-        l = self.lines[index].decode("utf-8")
-        c = list(map(ord, l))
-        return torch.tensor(c)
+        return self.data[index]
 
     def __len__(self) -> int:
-        return len(self.lines)
+        return self.n_lines
 
 def collate_fn(batch: list[torch.Tensor]) -> tuple:
     l_x = []
@@ -43,8 +38,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple:
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
-    # dts = BinaryDataset("tiny-example-news.jsonl.contents.txt.lines.txt.encoded.bin", LINE_SEP)
+    dts = BinaryDataset("WanJuan-News/part-006853-a894b46e.jsonl.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
@@ -53,6 +47,9 @@ if __name__ == "__main__":
     print(len(e.decode(list(d))))
     loader = DataLoader(dts, 5, True, collate_fn=collate_fn, num_workers=2)
     
+    i = 0
     for x, y, n_tokens in loader:
         print(x.shape, y.shape, n_tokens)
-        break
+        i += 1
+        if i > 5:
+            break

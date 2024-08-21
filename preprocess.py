@@ -1,16 +1,8 @@
 import math
+import numpy as np
 from tqdm import tqdm
 from config import *
 from encoder import Encoder
-
-def _get_contents(fname: str) -> str:
-    print("Extracting contents.")
-    out_fname = fname + ".contents.txt"
-    with open(fname) as f_in, open(out_fname, "a") as f_out:
-        for l in tqdm(f_in):
-            if len(l) > 40:
-                f_out.write(l[40:-3] + "\n")
-    return out_fname
 
 def _get_lines(fname: str, max_length: int) -> str:
     print("Splitting lines.")
@@ -36,20 +28,22 @@ def _encode_lines(fname: str, encoder: Encoder, line_sep: str) -> str:
             f_out.write(s)
     return out_fname
 
-def preprocess(fname: str, max_length: int, encoder: Encoder, line_sep: str):
-    return _encode_lines(
-        _get_lines(
-            _get_contents(fname),
-            max_length
-        ),
-        encoder,
-        line_sep
-    )
+def preprocess(fname: str, encoder: Encoder):
+    with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
+        for l in tqdm(f_in):
+            if len(l) > 40:
+                arr = np.array(
+                    encoder.encode(l[40:-3]) + [SPECIAL_TOKENS_IDS["<eos>"]],
+                    dtype=np.int16
+                )
+                f_out.write(arr.tobytes())
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) <= 1:
-        print("usage: python preprocess.py <path>")
+        print("usage: python preprocess.py <path> [<path>, ...]")
         exit(1)
-    fname = sys.argv[-1]
-    preprocess(fname, MAX_LENGTH + 1, Encoder.from_path("encoder.json"), LINE_SEP)
+    fnames = sys.argv[1:]
+    for fname in fnames:
+        print("Preprocessing", fname)
+        preprocess(fname, Encoder.from_path("encoder.json"))
