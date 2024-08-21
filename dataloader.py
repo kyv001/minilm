@@ -30,7 +30,8 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple:
             line = pad(line, (0, MAX_LENGTH + 1 - len(line)), value=SPECIAL_TOKENS_IDS["<pad>"])
         l_x.append(line[:-1])
         l_y.append(line[1:])
-    x, y = torch.stack(l_x), torch.stack(l_y)
+    x = torch.stack(l_x).type_as(SPECIAL_TOKENS_TENSORS["<eos>"]) # int16 -> int
+    y = torch.stack(l_y).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
     n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
     return x, y, n_tokens
 
