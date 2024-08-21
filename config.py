@@ -18,7 +18,7 @@ MIN_LEARINGRATE = 6e-5
 USE_TORCH2 = True
 # 以上除DEVICE和USE_TORCH2外皆为超参数
 
-# 预训练数据路径（*.jsonl.contents.txt.lines.txt.encoded.bin）
+# 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.bin"
 
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
