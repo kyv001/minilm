@@ -4,7 +4,7 @@ from tqdm import tqdm
 from config import *
 from encoder import Encoder
 
-def preprocess(fname: str, encoder: Encoder):
+def preprocess(fname: str, encoder: Encoder): # 把所有文字用<eos>隔开然后连接在一起
     with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
         for l in tqdm(f_in):
             if len(l) > 40:

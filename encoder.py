@@ -2,6 +2,7 @@ import json
 from _encoder import *
 
 class Encoder:
+    """字符级编码器，因为是中文所以不做tokenizer了"""
     def __init__(self, vocab: list, special_tokens: list):
         self.vocab = special_tokens + vocab + [""]
         self.unk = len(self.vocab) - 1

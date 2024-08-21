@@ -60,7 +60,7 @@ class LLM(nn.Module):
         super().__init__()
         self.device = device
         self.wte = nn.Embedding(vocab_size, dim)
-        self.pe = nn.Embedding(max_length, dim)
+        self.pe = nn.Embedding(max_length, dim) # TODO：将位置嵌入换成Llama风格的旋转位置编码
         self.blocks = nn.ModuleList([
             Block(dim, max_length, n_heads, dropout, device) for _ in range(n_blocks)
         ])

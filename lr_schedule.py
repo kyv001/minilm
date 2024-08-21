@@ -1,6 +1,7 @@
 from math import cos, pi
 
 def get_schedule(warmup_steps: int, max_lr: float, target_steps: int, min_lr: float):
+    # 带预热的余弦退火
     def get_lr(step: int) -> float:
         if step <= warmup_steps:
             return max_lr / warmup_steps * step

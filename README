@@ -3,7 +3,7 @@
 如何自行训练？
 1、将https://opendatalab.com/OpenDataLab/WanJuan1_dot_0/tree/main/raw/nlp/CN 中数据下载下来；
 2、安装requirements.txt内所有包；
-3、运行python preprocess.py {文件名} 逐一将所有.jsonl文件预处理成.jsonl.contents.txt.lines.txt.encoded.bin文件；
+3、运行python preprocess.py {文件名} 逐一将所有.jsonl文件预处理成.jsonl.bin文件；
 4、将自己想训练的那个预处理后文件的路径填入config.py中的PRETRAIN_DATA变量中；
 5、如果只有一张显卡，运行python3 llm.py；如果有不止一张显卡，运行torchrun --standalone --nproc_per_node={显卡数量} llm.py。
 

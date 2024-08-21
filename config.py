@@ -1,13 +1,20 @@
 import torch
 import os
 
-# DEVICE = "cpu"
+# 模型超参数
 MAX_LENGTH = 512
 MODEL_DIM = 768
 N_HEADS = 6
 N_BLOCKS = 12
+""" # 如果你有足够的显卡和显存：
+MAX_LENGTH = 2048
+MODEL_DIM = 4096
+N_HEADS = 32
+N_BLOCKS = 32
+"""
 DROPOUT = 0.02
 
+# 训练超参数
 TRAIN = True
 BATCH_SIZE = 8
 N_BATCHES = 50
@@ -15,14 +22,14 @@ WARMUP_STEPS = 100
 MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 10000
 MIN_LEARINGRATE = 6e-5
-USE_TORCH2 = True
-# 以上除DEVICE和USE_TORCH2外皆为超参数
+
+USE_TORCH2 = True # 是否使用torch2.0？用于开启torch2.0以上的特性以加速训练和推理。
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.bin"
 
+# 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
-
 SPECIAL_TOKENS_IDS = {
     "<pad>": 0,
     "<eos>": 1,
@@ -34,6 +41,7 @@ SPECIAL_TOKENS_TENSORS = {
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
 
+# 检查点位置和属性
 PRETRAINED_STATE_DICT_PATH = None
 START_STEP = 0
 
