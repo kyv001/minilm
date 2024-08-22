@@ -1,6 +1,7 @@
 from math import cos, pi
+from typing import Callable
 
-def get_schedule(warmup_steps: int, max_lr: float, target_steps: int, min_lr: float):
+def get_schedule(warmup_steps: int, max_lr: float, target_steps: int, min_lr: float) -> Callable[[int], float]:
     # 带预热的余弦退火
     def get_lr(step: int) -> float:
         if step <= warmup_steps:

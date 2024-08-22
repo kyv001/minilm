@@ -21,7 +21,7 @@ class BinaryDataset(Dataset):
     def __len__(self) -> int:
         return self.n_lines
 
-def collate_fn(batch: list[torch.Tensor]) -> tuple:
+def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor]:
     l_x = []
     l_y = []
     # l: 这是一个测试。<eos>

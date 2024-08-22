@@ -10,7 +10,7 @@ from encoder import Encoder
 from modules import LLM
 from lr_schedule import get_schedule
 
-def train(RANK, WORLD_SIZE, USE_DDP):
+def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 设置进程内超参数和选项
     global BATCH_SIZE
     print(f"train({RANK}, {WORLD_SIZE}, {USE_DDP})")

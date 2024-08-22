@@ -36,7 +36,7 @@ SPECIAL_TOKENS_IDS = {
     "<ins>": 2,
     "</ins>": 3
 }
-SPECIAL_TOKENS_TENSORS = {
+SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
     token_name: torch.tensor(SPECIAL_TOKENS_IDS[token_name])
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
