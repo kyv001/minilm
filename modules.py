@@ -47,7 +47,8 @@ class MLP(nn.Module):
     def forward(self, x: torch.Tensor):
         x1 = self.linear1(x)
         x2 = self.linear2(x)
-        return self.proj(self.silu(x1) * x2)
+        y = self.proj(self.silu(x1) * x2)
+        return self.dropout(y)
 
 class CausalSelfAttention(nn.Module):
     """带因果关系的多头自注意力，使用Flash Attention和RoPE"""
@@ -85,7 +86,7 @@ class Block(nn.Module):
         self.ln1 = nn.LayerNorm(dim)
         self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout)
         self.ln2 = nn.LayerNorm(dim)
-        self.mlp = MLP(dim)
+        self.mlp = MLP(dim, dropout)
 
     def forward(self, x: torch.Tensor):
         x = x + self.attn(self.ln1(x))
