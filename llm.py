@@ -17,7 +17,7 @@ if __name__ == "__main__":
     else:
         DEVICE = "cuda"
         encoder = Encoder.from_path("encoder.json")
-        llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, 0, DEVICE).to(DEVICE)
+        llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, 0).to(DEVICE)
         if USE_TORCH2:
             torch.set_float32_matmul_precision('high')
             print("Compiling module")

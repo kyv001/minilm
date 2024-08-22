@@ -4,8 +4,8 @@ import os
 # 模型超参数
 MAX_LENGTH = 512
 MODEL_DIM = 768
-N_HEADS = 6
-N_BLOCKS = 12
+N_HEADS = 8
+N_BLOCKS = 8
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
