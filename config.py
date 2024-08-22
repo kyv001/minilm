@@ -23,8 +23,6 @@ MAX_LEARINGRATE = 6e-4
 TARGET_STEPS = 10000
 MIN_LEARINGRATE = 6e-5
 
-USE_TORCH2 = True # 是否使用torch2.0？用于开启torch2.0以上的特性以加速训练和推理。
-
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.bin"
 
@@ -58,7 +56,6 @@ __all__ = [
     "MAX_LEARINGRATE",
     "TARGET_STEPS",
     "MIN_LEARINGRATE",
-    "USE_TORCH2",
     "PRETRAIN_DATA",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",

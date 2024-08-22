@@ -31,11 +31,12 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT).to(DEVICE)
     print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
-    if USE_TORCH2: # 编译模型加快速度
-        torch.set_float32_matmul_precision('high')
-        print("Compiling module")
-        llm = torch.compile(llm) # torch 2+
-        print("Compiled successfully")
+    # 编译模型加快速度
+    torch.set_float32_matmul_precision('high')
+    print("Compiling module")
+    llm = torch.compile(llm)
+    print("Compiled successfully")
+    # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
         import collections
         sd = torch.load(PRETRAINED_STATE_DICT_PATH)
@@ -44,10 +45,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         llm = DDP(llm, device_ids=[RANK]) # 将模型分布到各个显卡上
     llm.train()
     # 构建优化器
-    if USE_TORCH2:
-        optimizer = optim.AdamW(llm.parameters(), fused=True) # torch 2+
-    else:
-        optimizer = optim.AdamW(llm.parameters())
+    optimizer = optim.AdamW(llm.parameters(), fused=True)
     # 构建学习率调度器
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     # 构建数据加载器

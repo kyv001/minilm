@@ -18,11 +18,12 @@ if __name__ == "__main__":
         DEVICE = "cuda"
         encoder = Encoder.from_path("encoder.json")
         llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, 0).to(DEVICE)
-        if USE_TORCH2:
-            torch.set_float32_matmul_precision('high')
-            print("Compiling module")
-            llm = torch.compile(llm) # torch 2+
-            print("Compiled successfully")
+        # 编译模型并设置float32精度以提高推理速度
+        torch.set_float32_matmul_precision('high')
+        print("Compiling module")
+        llm = torch.compile(llm) # torch 2+
+        print("Compiled successfully")
+        # 加载预训练模型
         module_state_dict = torch.load(PRETRAINED_STATE_DICT_PATH)
         llm.load_state_dict(module_state_dict)
         llm.eval()
