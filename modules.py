@@ -36,16 +36,18 @@ class RotatoryPositionalEncoding(nn.Module):
 
 class MLP(nn.Module):
     """Feed forward层，一个普通的多层感知机"""
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, dropout: float):
         super().__init__()
-        self.linear = nn.Linear(dim, dim * 4)
-        self.gelu = nn.GELU()
+        self.linear1 = nn.Linear(dim, dim * 4)
+        self.linear2 = nn.Linear(dim, dim * 4)
         self.proj = nn.Linear(dim * 4, dim)
+        self.silu = nn.SiLU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor):
-        x = self.linear(x)
-        x = self.gelu(x)
-        return self.proj(x)
+        x1 = self.linear1(x)
+        x2 = self.linear2(x)
+        return self.proj(self.silu(x1) * x2)
 
 class CausalSelfAttention(nn.Module):
     """带因果关系的多头自注意力，使用Flash Attention和RoPE"""
