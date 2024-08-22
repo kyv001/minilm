@@ -103,6 +103,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
             step_time = time.time() - t0
             total_time = step_time + t0 - start_time
             if IS_MASTER:
+                open(LOSSES_LOG_PATH, "a").write(f"{step}: {total_loss}")
                 print()
                 print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{n_tokens}")
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")

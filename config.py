@@ -2,10 +2,10 @@ import torch
 import os
 
 # 模型超参数
-MAX_LENGTH = 512
-MODEL_DIM = 768
+MAX_LENGTH = 1024
+MODEL_DIM = 1024
 N_HEADS = 8
-N_BLOCKS = 8
+N_BLOCKS = 12
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
@@ -43,6 +43,9 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 PRETRAINED_STATE_DICT_PATH = None
 START_STEP = 0
 
+# Loss数据记录文件
+LOSSES_LOG_PATH = "losses.log"
+
 __all__ = [
     "MAX_LENGTH",
     "MODEL_DIM",
@@ -61,5 +64,6 @@ __all__ = [
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
     "PRETRAINED_STATE_DICT_PATH",
-    "START_STEP"
+    "START_STEP",
+    "LOSSES_LOG_PATH",
 ]
