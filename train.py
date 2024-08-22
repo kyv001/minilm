@@ -71,6 +71,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
             for group in optimizer.param_groups:
                 group["lr"] = lr
             total_loss = 0
+            total_tokens = 0
         
         if USE_DDP:                                                                   # 多卡学习中，这是否是一次完整
             llm.require_backward_grad_sync = (microstep % N_BATCHES == N_BATCHES - 1) # 的学习中的最后一次反向传播？
@@ -88,6 +89,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         ) / N_BATCHES
         loss.backward()
         total_loss += loss.item()
+        total_tokens += n_tokens.sum().item()
 
         if IS_MASTER:
             print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
@@ -103,9 +105,9 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
             step_time = time.time() - t0
             total_time = step_time + t0 - start_time
             if IS_MASTER:
-                open(LOSSES_LOG_PATH, "a").write(f"{step}: {total_loss}")
+                open(LOSSES_LOG_PATH, "a").write(f"step{step}: loss={total_loss} @ lr={lr}\n")
                 print()
-                print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{n_tokens}")
+                print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{total_tokens}")
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:

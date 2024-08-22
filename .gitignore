@@ -11,3 +11,4 @@ venv
 _encoder/build
 pretrained*
 *.ipynb
+*.log
