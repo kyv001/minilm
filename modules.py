@@ -69,9 +69,9 @@ class CausalSelfAttention(nn.Module):
         # (B, T, V) -proj-> (B, T, V)
         # -view-> (B, T, n_heads, head_dim)
         # -T(1, 2)-> (B, n_heads, T, head_dim)
-        q = self.pe(self.q_proj(x).view(B, T, self.n_heads, -1))
-        k = self.pe(self.k_proj(x).view(B, T, self.n_heads, -1))
-        v = self.v_proj(x).view(B, T, self.n_heads, -1)
+        q = self.pe(self.q_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2))
+        k = self.pe(self.k_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2))
+        v = self.v_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)
         # (B, n_heads, T, head_dim) -T(1, 2) -> (B, T, n_heads, head_dim)
         # -view-> (B, T, V)
         x = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.dropout)\
