@@ -63,7 +63,6 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.pe = RotatoryPositionalEncoding(self.head_dim, max_length)
         self.dropout = dropout
-        self.final_dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor):
         B, T, _ = x.shape
@@ -77,7 +76,7 @@ class CausalSelfAttention(nn.Module):
         # -view-> (B, T, V)
         x = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.dropout)\
             .transpose(1, 2).contiguous().view(B, T, -1)
-        return self.final_dropout(self.proj(x))
+        return self.proj(x)
 
 class Block(nn.Module):
     """一个Encoder块"""
