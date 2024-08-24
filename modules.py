@@ -79,7 +79,7 @@ class CausalSelfAttention(nn.Module):
         return self.proj(x)
 
 class Block(nn.Module):
-    """一个Encoder块"""
+    """一个Decoder块"""
     def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
