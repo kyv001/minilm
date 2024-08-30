@@ -12,19 +12,20 @@ MODEL_DIM = 4096
 N_HEADS = 32
 N_BLOCKS = 32
 """
-DROPOUT = 0.02
+DROPOUT = 0.06
 
 # 训练超参数
-TRAIN = True
-BATCH_SIZE = 4
+TRAIN = False
+BATCH_SIZE = 2
 N_BATCHES = 60
-WARMUP_STEPS = 1000
-MAX_LEARINGRATE = 5e-4
-TARGET_STEPS = 80000
+WARMUP_STEPS = 0
+MAX_LEARINGRATE = 3e-4
+TARGET_STEPS = 1000
 MIN_LEARINGRATE = 1e-5
 
 # 预训练数据路径（*.jsonl.bin）
-PRETRAIN_DATA = "WanJuan-News/part-006853-a894b46e.jsonl.bin"
+PRETRAIN_DATA = "COIG-CQIA-full.jsonl.bin" # 这根本不是预训练数据而是微调数据，但是谁在乎呢
+WITH_MASK = True
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -40,8 +41,8 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = None
-START_STEP = 0
+PRETRAINED_STATE_DICT_PATH = "llm373_state_dict_1.15620494261384.pt"
+START_STEP = 373
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
@@ -60,6 +61,7 @@ __all__ = [
     "TARGET_STEPS",
     "MIN_LEARINGRATE",
     "PRETRAIN_DATA",
+    "WITH_MASK",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",

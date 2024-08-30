@@ -5,7 +5,7 @@ from torch import nn, optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from config import *
-from dataloader import BinaryDataset, collate_fn
+from dataloader import BinaryDataset, collate_fn, collate_fn_with_instruction_mask
 from encoder import Encoder
 from modules import LLM
 from lr_schedule import get_schedule
@@ -54,7 +54,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         batch_size=BATCH_SIZE,
         shuffle=False,
         num_workers=4,
-        collate_fn=collate_fn
+        collate_fn=collate_fn_with_instruction_mask if WITH_MASK else collate_fn, # 选择是否使用掩码
     )
 
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
@@ -63,7 +63,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     microstep = 0
     total_microsteps = len(loader)
     torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
-    for x, y, n_tokens in loader:
+    for x, y, mask, n_tokens in loader:
         if microstep % N_BATCHES == 0: # 一次完整的学习的开始
             t0 = time.time()
             step += 1
@@ -81,12 +81,21 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         x = x.to(DEVICE)
         y = y.to(DEVICE)
         res = llm(x)
-        loss = F.cross_entropy(
-            res.view(-1, res.size(-1)),
-            y.view(-1),
-            reduction="mean",
-            ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-        ) / N_BATCHES
+        if WITH_MASK and mask.sum() > 0: # 防止除以0导致loss为nan
+            mask = mask.to(DEVICE)
+            loss = (F.cross_entropy(
+                res.view(-1, res.size(-1)),
+                y.view(-1),
+                reduction="none",
+                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
+            ) * mask.view(-1)).sum() / mask.sum() / N_BATCHES
+        else:
+            loss = F.cross_entropy(
+                res.view(-1, res.size(-1)),
+                y.view(-1),
+                reduction="mean",
+                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
+            ) / N_BATCHES
         loss.backward()
         total_loss += loss.item()
         total_tokens += n_tokens.sum().item()

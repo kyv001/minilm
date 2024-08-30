@@ -31,7 +31,7 @@ if __name__ == "__main__":
             while True:
                 try:
                     prompt = input(">>> ")
-                    encoded_prompt = encoder.encode(prompt)
+                    encoded_prompt = [SPECIAL_TOKENS_IDS["<ins>"], *encoder.encode(prompt), SPECIAL_TOKENS_IDS["</ins>"]]
                     x = F.pad(
                         torch.tensor(encoded_prompt),
                         (MAX_LENGTH - len(encoded_prompt), 0),
