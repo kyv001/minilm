@@ -70,21 +70,19 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("COIG-CQIA-full.jsonl.bin", MAX_LENGTH)
+    dts = BinaryDataset("part-2021278643.json.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
     print(d)
     print(e.decode(list(d)))
     print(len(e.decode(list(d))))
-    loader = DataLoader(dts, 5, True, collate_fn=collate_fn_with_instruction_mask, num_workers=2)
+    loader = DataLoader(dts, 5, True, collate_fn=collate_fn, num_workers=2)
     
     i = 0
-    for x, y, mask, n_tokens in loader:
-        print(x.shape, y.shape, mask.shape, n_tokens)
+    for x, y, _, n_tokens in loader:
+        print(x.shape, y.shape, n_tokens)
         i += 1
         if i > 5:
-            print(x, y, mask.sum(), n_tokens)
-            print(e.decode((y[0]).tolist()))
-            print(e.decode((y[0] * mask[0]).tolist()))
+            print(x, y, n_tokens)
             break

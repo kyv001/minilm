@@ -1,8 +1,10 @@
 __pycache__
 WanJuan-*
+WuDao*
 *.txt
 venv
 *.jsonl
+part-*.json
 *.pt
 *.bin
 *.so

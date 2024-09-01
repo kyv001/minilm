@@ -17,7 +17,7 @@ def preprocess(fname: str, encoder: Encoder): # 把所有文字用<eos>隔开然
 if __name__ == "__main__":
     import sys
     if len(sys.argv) <= 1:
-        print("usage: python preprocess.py <path> [<path>, ...]")
+        print("usage: python preprocess_wanjuan.py <path> [<path>, ...]")
         exit(1)
     fnames = sys.argv[1:]
     for fname in fnames:
