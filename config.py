@@ -3,9 +3,9 @@ import os
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 768
+MODEL_DIM = 1024
 N_HEADS = 8
-N_BLOCKS = 12
+N_BLOCKS = 16
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
@@ -15,17 +15,17 @@ N_BLOCKS = 32
 DROPOUT = 0.06
 
 # 训练超参数
-TRAIN = False
+TRAIN = True
 BATCH_SIZE = 2
-N_BATCHES = 60
-WARMUP_STEPS = 0
+N_BATCHES = 120
+WARMUP_STEPS = 1000
 MAX_LEARINGRATE = 3e-4
-TARGET_STEPS = 1000
+TARGET_STEPS = 100000
 MIN_LEARINGRATE = 1e-5
 
 # 预训练数据路径（*.jsonl.bin）
-PRETRAIN_DATA = "COIG-CQIA-full.jsonl.bin" # 这根本不是预训练数据而是微调数据，但是谁在乎呢
-WITH_MASK = True
+PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
+WITH_MASK = False
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -41,8 +41,8 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "llm373_state_dict_1.15620494261384.pt"
-START_STEP = 373
+PRETRAINED_STATE_DICT_PATH = None
+START_STEP = 0
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
