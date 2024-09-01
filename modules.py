@@ -112,3 +112,7 @@ class LLM(nn.Module):
         x = self.ln(x)
         x = self.lmhead(x)
         return x
+
+    def save(self, path: str):
+        torch.save(self.state_dict(), path) # 保存模型参数防止带上不必要的前缀
+        

@@ -14,6 +14,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 设置进程内超参数和选项
     global BATCH_SIZE
     print(f"train({RANK}, {WORLD_SIZE}, {USE_DDP})")
+    # 如果使用DDP，导入并初始化DDP
     if USE_DDP:
         import torch.distributed as dist
         from torch.nn.parallel import DistributedDataParallel as DDP
@@ -31,18 +32,18 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT).to(DEVICE)
     print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
+    # 如果有的话，加载检查点模型
+    if PRETRAINED_STATE_DICT_PATH:
+        llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH))
     # 编译模型加快速度
     torch.set_float32_matmul_precision('high')
     print("Compiling module")
     llm = torch.compile(llm)
     print("Compiled successfully")
-    # 如果有的话，加载检查点模型
-    if PRETRAINED_STATE_DICT_PATH:
-        import collections
-        sd = torch.load(PRETRAINED_STATE_DICT_PATH)
-        llm.load_state_dict(sd)
+    # 如果使用DDP，将模型分布到各个显卡上
     if WORLD_SIZE > 1:
-        llm = DDP(llm, device_ids=[RANK]) # 将模型分布到各个显卡上
+        llm = DDP(llm, device_ids=[RANK])
+    # 切换到训练模式
     llm.train()
     # 构建优化器
     optimizer = optim.AdamW(llm.parameters(), fused=True)
@@ -120,12 +121,17 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:
-                    torch.save(llm.state_dict(), f"llm{step}_state_dict{total_loss}.pt")
+                    llm.save(f"llm{step}_state_dict_{total_loss}.pt")
                     print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
 
     if IS_MASTER:
-        torch.save(llm.state_dict(), f"llm{step}_state_dict_{total_loss}.pt")
+        llm.save(f"llm{step}_state_dict_{total_loss}.pt")
         print("Training successfully ended.")
         
     if USE_DDP:
         dist.destroy_process_group()
+
+def save_model(model: nn.Module, path: str, USE_DDP: bool):
+    if USE_DDP:
+        model = model.module
+    model.save(path)
