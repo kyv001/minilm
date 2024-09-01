@@ -124,11 +124,11 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:
-                    llm.save(f"llm{step}_state_dict_{total_loss}.pt")
+                    save_model(llm, f"llm{step}_state_dict_{total_loss}.pt", USE_DDP)
                     print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
 
     if IS_MASTER:
-        llm.save(f"llm{step}_state_dict_{total_loss}.pt")
+        save_model(llm, f"llm{step}_state_dict_{total_loss}.pt", USE_DDP)
         print("Training successfully ended.")
         
     if USE_DDP:
