@@ -1,3 +1,4 @@
+"""预处理万卷数据集，因为数据不干净已经弃用"""
 import math
 import numpy as np
 from tqdm import tqdm
