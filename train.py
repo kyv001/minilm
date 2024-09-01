@@ -90,13 +90,16 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 reduction="none",
                 ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
             ) * mask.view(-1)).sum() / mask.sum() / N_BATCHES
-        else:
+        elif not WITH_MASK:
             loss = F.cross_entropy(
                 res.view(-1, res.size(-1)),
                 y.view(-1),
                 reduction="mean",
                 ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
             ) / N_BATCHES
+        else:
+            continue
+
         loss.backward()
         total_loss += loss.item()
         total_tokens += n_tokens.sum().item()
