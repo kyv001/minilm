@@ -31,18 +31,15 @@ if __name__ == "__main__":
             while True:
                 try:
                     prompt = input(">>> ")
-                    encoded_prompt = [SPECIAL_TOKENS_IDS["<ins>"], *encoder.encode(prompt), SPECIAL_TOKENS_IDS["</ins>"]]
-                    x = F.pad(
-                        torch.tensor(encoded_prompt),
-                        (MAX_LENGTH - len(encoded_prompt), 0),
-                        value=SPECIAL_TOKENS_IDS["<pad>"]
-                    ).unsqueeze(0).to(DEVICE)
+                    # encoded_prompt = [SPECIAL_TOKENS_IDS["<ins>"], *encoder.encode(prompt), SPECIAL_TOKENS_IDS["</ins>"]]
+                    encoded_prompt = encoder.encode(prompt)
+                    x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)
                     while True:
                         try:
-                            y = F.softmax(llm(x)[:, -1, :], dim=-1)
-                            # probs, indices = torch.topk(y, 1, dim=-1)
-                            # token = torch.multinomial(probs, 1)
-                            token = torch.argmax(y.squeeze()).unsqueeze(0).unsqueeze(0)
+                            y = F.softmax(llm(x)[:, -1, :], dim=-1).squeeze()
+                            probs, indices = torch.topk(y, 30, dim=-1)
+                            token = indices[torch.multinomial(probs, 1)].unsqueeze(0)
+                            # token = torch.argmax(y.squeeze()).unsqueeze(0).unsqueeze(0)
                             x = torch.cat([x, token], dim=1)[:, -MAX_LENGTH:, ...]
                             code = int(token[0].item())
                             if code == SPECIAL_TOKENS_IDS["<eos>"]:

@@ -15,7 +15,7 @@ N_BLOCKS = 32
 DROPOUT = 0.06
 
 # 训练超参数
-TRAIN = True
+TRAIN = False
 BATCH_SIZE = 2
 N_BATCHES = 120
 WARMUP_STEPS = 1000
@@ -41,8 +41,8 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = None
-START_STEP = 0
+PRETRAINED_STATE_DICT_PATH = "llm73000_state_dict_2.5042215660214424.pt"
+START_STEP = 18000
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
