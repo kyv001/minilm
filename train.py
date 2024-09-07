@@ -138,3 +138,10 @@ def save_model(model: nn.Module, path: str, USE_DDP: bool):
     if USE_DDP:
         model = model.module
     model.save(path)
+
+if __name__ == "__main__":
+    DDP = os.environ.get("RANK", None) is not None
+    if DDP: # 多GPU
+        train(int(os.environ["LOCAL_RANK"]), int(os.environ["WORLD_SIZE"]), True)
+    else:
+        train(0, 1, False)
