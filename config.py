@@ -41,8 +41,8 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "llm73000_state_dict_2.5042215660214424.pt"
-START_STEP = 18000
+PRETRAINED_STATE_DICT_PATH = "llm80000_state_dict_2.552459292113781.pt"
+START_STEP = 80000
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
