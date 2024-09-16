@@ -35,6 +35,11 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
         llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH))
+    # 如果是微调，仅训练最后几层
+    if FINETUNE:
+        for block in llm.blocks[:-N_FINETUNE_BLOCKS]:
+            for param in block.parameters():
+                param.requires_grad = False
     # 编译模型加快速度
     torch.set_float32_matmul_precision('high')
     print("Compiling module")

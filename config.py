@@ -19,14 +19,15 @@ TRAIN = False
 BATCH_SIZE = 1
 N_BATCHES = 60
 WARMUP_STEPS = 0
-MAX_LEARINGRATE = 3e-4
-TARGET_STEPS = 100
-MIN_LEARINGRATE = 1e-4
+MAX_LEARINGRATE = 4e-5
+TARGET_STEPS = 1
+MIN_LEARINGRATE = 4e-5
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
-FINETUNE_DATA = "alpaca-chinese-52k.json.bin"
+FINETUNE_DATA = "dialog_release.json.bin"
 FINETUNE = True
+N_FINETUNE_BLOCKS = 8 # 只训练最后8层防止爆显存
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -64,6 +65,7 @@ __all__ = [
     "PRETRAIN_DATA",
     "FINETUNE_DATA",
     "FINETUNE",
+    "N_FINETUNE_BLOCKS",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
