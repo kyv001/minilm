@@ -16,16 +16,17 @@ DROPOUT = 0.06
 
 # 训练超参数
 TRAIN = False
-BATCH_SIZE = 2
-N_BATCHES = 120
-WARMUP_STEPS = 1000
+BATCH_SIZE = 1
+N_BATCHES = 60
+WARMUP_STEPS = 0
 MAX_LEARINGRATE = 3e-4
-TARGET_STEPS = 100000
-MIN_LEARINGRATE = 1e-5
+TARGET_STEPS = 100
+MIN_LEARINGRATE = 1e-4
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
-WITH_MASK = False
+FINETUNE_DATA = "alpaca-chinese-52k.json.bin"
+FINETUNE = True
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -41,8 +42,8 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "llm80000_state_dict_2.552459292113781.pt"
-START_STEP = 80000
+PRETRAINED_STATE_DICT_PATH = "ckpt.pt"
+START_STEP = 0
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
@@ -61,7 +62,8 @@ __all__ = [
     "TARGET_STEPS",
     "MIN_LEARINGRATE",
     "PRETRAIN_DATA",
-    "WITH_MASK",
+    "FINETUNE_DATA",
+    "FINETUNE",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",

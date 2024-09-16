@@ -51,11 +51,11 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     # 构建数据加载器
     loader = DataLoader(
-        BinaryDataset(PRETRAIN_DATA, MAX_LENGTH),
+        BinaryDataset(FINETUNE_DATA if FINETUNE else PRETRAIN_DATA, MAX_LENGTH),
         batch_size=BATCH_SIZE,
         shuffle=False,
         num_workers=4,
-        collate_fn=collate_fn_with_instruction_mask if WITH_MASK else collate_fn, # 选择是否使用掩码
+        collate_fn=collate_fn_with_instruction_mask if FINETUNE else collate_fn, # 选择是否使用掩码
     )
 
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
@@ -65,6 +65,8 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     total_microsteps = len(loader)
     torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
     for x, y, mask, n_tokens in loader:
+        if mask is not None and mask.sum() == 0: # 跳过空的batch
+            continue
         if microstep % N_BATCHES == 0: # 一次完整的学习的开始
             t0 = time.time()
             step += 1
@@ -82,7 +84,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         x = x.to(DEVICE)
         y = y.to(DEVICE)
         res = llm(x)
-        if WITH_MASK and mask.sum() > 0: # 防止除以0导致loss为nan
+        if FINETUNE and mask.sum() > 0: # 防止除以0导致loss为nan
             mask = mask.to(DEVICE)
             loss = (F.cross_entropy(
                 res.view(-1, res.size(-1)),
@@ -90,7 +92,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 reduction="none",
                 ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
             ) * mask.view(-1)).sum() / mask.sum() / N_BATCHES
-        elif not WITH_MASK:
+        elif not FINETUNE:
             loss = F.cross_entropy(
                 res.view(-1, res.size(-1)),
                 y.view(-1),
@@ -100,13 +102,14 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         else:
             continue
 
+        del x, y, res, mask
         loss.backward()
         total_loss += loss.item()
         total_tokens += n_tokens.sum().item()
 
         if IS_MASTER:
             print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
-        del x, y, res, loss # 结束一次反向传播
+        del loss # 结束一次反向传播
 
         microstep += 1
         if microstep % N_BATCHES == 0: # 一次完整的学习的结束
@@ -124,11 +127,11 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
                 if step % 20 == 0:
-                    save_model(llm, f"llm{step}_state_dict_{total_loss}.pt", USE_DDP)
+                    save_model(llm, f"llm{step}_{'finetune' if FINETUNE else 'pretrain'}_state_dict_{total_loss}.pt", USE_DDP)
                     print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
 
     if IS_MASTER:
-        save_model(llm, f"llm{step}_state_dict_{total_loss}.pt", USE_DDP)
+        save_model(llm, f"llm{step}_{'finetune' if FINETUNE else 'pretrain'}_state_dict_{total_loss}.pt", USE_DDP)
         print("Training successfully ended.")
         
     if USE_DDP:

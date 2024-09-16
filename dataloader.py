@@ -63,26 +63,26 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
     x = torch.stack(l_x).type_as(SPECIAL_TOKENS_TENSORS["<eos>"]) # int16 -> int防止类型不一致
     y = torch.stack(l_y).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
     mask = torch.stack(l_m).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
-    n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
+    n_tokens = mask.sum()
     return x, y, mask, n_tokens
 
 
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("WuDaoCorpus2.0_base_200G/part_0.bin", MAX_LENGTH)
+    dts = BinaryDataset("alpaca-chinese-52k.json.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
     print(d)
     print(e.decode(list(d)))
     print(len(e.decode(list(d))))
-    loader = DataLoader(dts, 5, True, collate_fn=collate_fn, num_workers=2)
+    loader = DataLoader(dts, 5, True, collate_fn=collate_fn_with_instruction_mask, num_workers=2)
     
     i = 0
-    for x, y, _, n_tokens in loader:
-        print(x.shape, y.shape, n_tokens)
+    for x, y, mask, n_tokens in loader:
+        print(x.shape, y.shape, mask.shape, n_tokens)
         i += 1
         if i > 5:
-            print(x, y, n_tokens)
+            print(x, y, y * mask, n_tokens)
             break
