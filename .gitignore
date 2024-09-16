@@ -15,3 +15,4 @@ pretrained*
 *.ipynb
 *.log
 alpaca*
+dialog_release.json
