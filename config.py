@@ -25,7 +25,8 @@ MIN_LEARINGRATE = 4e-5
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
-FINETUNE_DATA = "dialog_release.json.bin"
+# 微调数据路径（*.bin）
+FINETUNE_DATA = "instruct_finetune.bin"
 FINETUNE = True
 N_FINETUNE_BLOCKS = 8 # 只训练最后8层防止爆显存
 
