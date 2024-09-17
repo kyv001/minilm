@@ -34,7 +34,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
-        llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH))
+        llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH, weights_only=True))
     # 如果是微调，仅训练最后几层
     if FINETUNE:
         for block in llm.blocks[:-N_FINETUNE_BLOCKS]:
