@@ -68,7 +68,7 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
     x = torch.stack(l_x).type_as(SPECIAL_TOKENS_TENSORS["<eos>"]) # int16 -> int防止类型不一致
     y = torch.stack(l_y).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
     mask = torch.stack(l_m).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
-    n_tokens = mask.sum()
+    n_tokens = (y * mask != SPECIAL_TOKENS_IDS["<pad>"]).sum()
     return x, y, mask, n_tokens
 
 
@@ -93,4 +93,5 @@ if __name__ == "__main__":
             print(e.decode(list(y[0])))
             print("MASKED Y = ")
             print(e.decode(list(y[0] * mask[0])))
+            print(n_tokens)
             break

@@ -96,7 +96,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 y.view(-1),
                 reduction="none",
                 ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-            ) * mask.view(-1)).sum() / mask.sum() / N_BATCHES
+            ) * mask.view(-1)).sum() / n_tokens / N_BATCHES
         elif not FINETUNE:
             loss = F.cross_entropy(
                 res.view(-1, res.size(-1)),
@@ -110,7 +110,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         del x, y, res, mask
         loss.backward()
         total_loss += loss.item()
-        total_tokens += n_tokens.sum().item()
+        total_tokens += n_tokens.item()
 
         if IS_MASTER:
             print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
