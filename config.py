@@ -45,6 +45,7 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 
 # 检查点位置和属性
 PRETRAINED_STATE_DICT_PATH = "ckpt.pt"
+FINETUNED_STATE_DICT_PATH = "llm20_finetune_state_dict_0.2458955847978359.pt"
 START_STEP = 0
 
 # Loss数据记录文件
@@ -71,6 +72,7 @@ __all__ = [
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
     "PRETRAINED_STATE_DICT_PATH",
+    "FINETUNED_STATE_DICT_PATH",
     "START_STEP",
     "LOSSES_LOG_PATH",
 ]
