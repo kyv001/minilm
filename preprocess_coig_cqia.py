@@ -1,4 +1,4 @@
-"""预处理指令微调数据集"""
+"""预处理COIG-CQIA指令微调数据集"""
 import math
 import json
 import numpy as np
@@ -6,14 +6,14 @@ from tqdm import tqdm
 from config import *
 from encoder import Encoder
 
-def preprocess(fname: str, encoder: Encoder):
+def preprocess(fname: str, encoder: Encoder): 
     """
     <ins>{指令}
     {输入}</ins>{输出}<eos>
     """
     with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
-        lines = json.load(f_in)
-        for j in tqdm(lines):
+        for l in tqdm(f_in):
+            j = json.loads(l)
             instr = j["instruction"]
             inp = j["input"]
             out = j["output"]
@@ -28,7 +28,7 @@ def preprocess(fname: str, encoder: Encoder):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) <= 1:
-        print("usage: python preprocess_instructions.py <path> [<path>, ...]")
+        print("usage: python preprocess_coig_cqia.py <path> [<path>, ...]")
         exit(1)
     fnames = sys.argv[1:]
     for fname in fnames:
