@@ -18,24 +18,30 @@ def infer():
     print("Compiling module")
     llm = torch.compile(llm)
     print("Compiled successfully")
+    encoded_prompt = []
     with torch.no_grad():
         while True:
             try:
-                prompt = input(">>> ") + "\n"
+                prompt = input(">>> ")
                 if not FINETUNE:
-                    encoded_prompt = encoder.encode(prompt)
+                    encoded_prompt += encoder.encode(prompt)
                 else:
-                    encoded_prompt = [SPECIAL_TOKENS_IDS["<ins>"], *encoder.encode(prompt), SPECIAL_TOKENS_IDS["</ins>"]]
+                    encoded_prompt += [
+                        SPECIAL_TOKENS_IDS["<ins>"],
+                        encoder.encode(prompt),
+                        SPECIAL_TOKENS_IDS["</ins>"]
+                    ]
                 x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)
                 while True:
                     try:
                         y = F.softmax(llm(x)[:, -1, :], dim=-1).squeeze()
-                        probs, indices = torch.topk(y, 10, dim=-1)
+                        probs, indices = torch.topk(y, 30, dim=-1)
                         token = indices[torch.multinomial(probs, 1)].unsqueeze(0)
                         x = torch.cat([x, token], dim=1)[:, -MAX_LENGTH:, ...]
                         code = int(token[0].item())
                         if code == SPECIAL_TOKENS_IDS["<eos>"]:
                             print()
+                            encoded_prompt = x.squeeze().tolist()
                             break
                         print(encoder.decode([code]), end="", flush=True)
                     except KeyboardInterrupt:

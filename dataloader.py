@@ -75,7 +75,7 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("dialog_release.json.bin", MAX_LENGTH)
+    dts = BinaryDataset("instruct_finetune.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
