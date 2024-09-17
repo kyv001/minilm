@@ -1,4 +1,4 @@
-"""预处理指令微调数据集，已用多轮对话数据集替代，已被弃用"""
+"""预处理指令微调数据集"""
 import math
 import json
 import numpy as np
