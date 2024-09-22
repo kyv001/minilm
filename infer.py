@@ -12,7 +12,7 @@ def infer():
     # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, 0.0).to(DEVICE)
     path = PRETRAINED_STATE_DICT_PATH if not FINETUNE else FINETUNED_STATE_DICT_PATH
-    llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH, weights_only=True))
+    llm.load_state_dict(torch.load(path, weights_only=True))
     llm.eval()
     # 编译模型并设置float32精度以提高推理速度
     torch.set_float32_matmul_precision('high')
@@ -25,11 +25,11 @@ def infer():
             try:
                 prompt = input(">>> ")
                 if not FINETUNE:
-                    encoded_prompt += encoder.encode(prompt)
+                    encoded_prompt = encoder.encode(prompt)
                 else:
-                    encoded_prompt += [
+                    encoded_prompt = [
                         SPECIAL_TOKENS_IDS["<ins>"],
-                        *encoder.encode(prompt),
+                        *encoder.encode(SYS_PROMPT + prompt),
                         SPECIAL_TOKENS_IDS["</ins>"]
                     ]
                 x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)

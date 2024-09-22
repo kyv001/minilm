@@ -29,6 +29,7 @@ PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
 FINETUNE_DATA = "instruct_finetune.bin"
 FINETUNE = True
 N_FINETUNE_BLOCKS = 8 # 只训练最后8层防止爆显存
+SYS_PROMPT = ""
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -45,7 +46,7 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 
 # 检查点位置和属性
 PRETRAINED_STATE_DICT_PATH = "ckpt.pt"
-FINETUNED_STATE_DICT_PATH = "llm20_finetune_state_dict_0.2458955847978359.pt"
+FINETUNED_STATE_DICT_PATH = "llm1604_finetune_state_dict_0.5587446317076683.pt"
 START_STEP = 0
 
 # Loss数据记录文件
@@ -68,6 +69,7 @@ __all__ = [
     "FINETUNE_DATA",
     "FINETUNE",
     "N_FINETUNE_BLOCKS",
+    "SYS_PROMPT",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",
