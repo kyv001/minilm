@@ -35,9 +35,9 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
         llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH, weights_only=True))
-    # 如果是微调，仅训练最后几层
+    # 如果是微调，仅训练前面几层
     if FINETUNE:
-        for block in llm.blocks[:-N_FINETUNE_BLOCKS]:
+        for block in llm.blocks[N_FINETUNE_BLOCKS:]:
             for param in block.parameters():
                 param.requires_grad = False
     # 编译模型加快速度
@@ -58,7 +58,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     loader = DataLoader(
         BinaryDataset(FINETUNE_DATA if FINETUNE else PRETRAIN_DATA, MAX_LENGTH),
         batch_size=BATCH_SIZE,
-        shuffle=False,
+        shuffle=True,
         num_workers=4,
         collate_fn=collate_fn_with_instruction_mask if FINETUNE else collate_fn, # 选择是否使用掩码
     )
