@@ -1,0 +1,23 @@
+语言头和词嵌入共用权重以节省显存和时间
+可学习的位置嵌入
+                /---------->---------------v
+Input->WTE+PE->[^LayerNorm->MaskedAttention+>LayerNorm->MLP+]*N_Blocks->LayerNorm->LMHead->SoftMax->Output
+                                           \---------------^
+(B,T)->(B,T,V)------------------------------------------------------------------------------------->(B,T)
+AdamW Optimizer（使用fused=True加快CUDA训练速度）
+把数据填满(B, T)作为输入，
+每一个数据的下一位作为参照的输出
+数据填不满一个批次的，用pad填满到一整行，然后取下一个数据补到一个批次
+降低数据精度torch.set_float32_matmul_percision('high')
+编译模型torch.compile(model)
+FlashAttention F.scaled_dot_product_attention(q, k, v, is_causual=True)
+（实际上用了nn.MultiheadAttention）
+尽量使用2的幂
+使用torch.topk(probs, n, dim=-1)限制只保留概率前n的token作为候选
+在候选中使用torch.multinomial(probs, 1)选出1个最终token
+（实际上还是直接用了argmax）
+进行梯度裁剪torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)防止梯度爆炸/被污染数据误导
+学习率调度（最大6e-4）+大批次（400～，使用梯度累积，注意归一化）
+
+TODO:
+也许使用Grouped Attention？
