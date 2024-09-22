@@ -74,8 +74,13 @@ class CausalSelfAttention(nn.Module):
         v = self.v_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)
         # (B, n_heads, T, head_dim) -T(1, 2) -> (B, T, n_heads, head_dim)
         # -view-> (B, T, V)
-        x = nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.dropout)\
-            .transpose(1, 2).contiguous().view(B, T, -1)
+        x = (
+            nn.functional.scaled_dot_product_attention(q, k, v,
+                    is_causal=True, dropout_p=self.dropout)
+            .transpose(1, 2)
+            .contiguous()
+            .view(B, T, -1)
+        )
         return self.proj(x)
 
 class Block(nn.Module):
