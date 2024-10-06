@@ -4,14 +4,9 @@ import os
 # 模型超参数
 MAX_LENGTH = 1024
 MODEL_DIM = 1024
+LORA_DIM = 32
 N_HEADS = 8
 N_BLOCKS = 16
-""" # 如果你有足够的显卡和显存：
-MAX_LENGTH = 2048
-MODEL_DIM = 4096
-N_HEADS = 32
-N_BLOCKS = 32
-"""
 DROPOUT = 0.06
 
 # 训练超参数
@@ -27,7 +22,7 @@ MIN_LEARINGRATE = 4e-5
 PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
 # 微调数据路径（*.bin）
 FINETUNE_DATA = "instruct_finetune.bin"
-FINETUNE = True
+FINETUNE = False
 N_FINETUNE_BLOCKS = 8 # 只训练最后8层防止爆显存
 SYS_PROMPT = ""
 
@@ -55,6 +50,7 @@ LOSSES_LOG_PATH = "losses.log"
 __all__ = [
     "MAX_LENGTH",
     "MODEL_DIM",
+    "LORA_DIM",
     "N_HEADS",
     "N_BLOCKS",
     "DROPOUT",
