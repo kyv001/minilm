@@ -8,8 +8,13 @@ from encoder import Encoder
 
 def preprocess(fname: str, encoder: Encoder):
     """
-    <ins>{指令}
-    {输入}</ins>{输出}<eos>
+用户：{instruction}
+{input}
+
+
+MiniLM：{output}
+
+
     """
     with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
         lines = json.load(f_in)
@@ -17,8 +22,8 @@ def preprocess(fname: str, encoder: Encoder):
             instr = j["instruction"]
             inp = j["input"]
             out = j["output"]
-            data = [SPECIAL_TOKENS_IDS["<ins>"], *encoder.encode(instr + "\n" + inp), SPECIAL_TOKENS_IDS["</ins>"],
-                    *encoder.encode(out), SPECIAL_TOKENS_IDS["<eos>"]][:MAX_LENGTH + 1]
+            data = [*encoder.encode("用户：" + instr + "\n" + inp + "\n\n"),
+                    *encoder.encode("MiniLM：" + out + "\n\n"), SPECIAL_TOKENS_IDS["<eos>"]][:MAX_LENGTH + 1]
             arr = np.array(
                 data + [SPECIAL_TOKENS_IDS["<pad>"]] * (MAX_LENGTH - len(data) + 1),
                 dtype=np.int16
