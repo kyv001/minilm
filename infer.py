@@ -28,9 +28,7 @@ def infer():
                     encoded_prompt = encoder.encode(prompt)
                 else:
                     encoded_prompt = [
-                        SPECIAL_TOKENS_IDS["<ins>"],
-                        *encoder.encode(SYS_PROMPT + prompt),
-                        SPECIAL_TOKENS_IDS["</ins>"]
+                        *encoder.encode("用户：" + prompt + "\n\nMiniLM："),
                     ]
                 x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)
                 while True:
