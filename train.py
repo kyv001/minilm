@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from config import *
 from dataloader import BinaryDataset, collate_fn, collate_fn_with_instruction_mask
 from encoder import Encoder
-from modules import LLM
+from modules_rwkv import LLM
 from lr_schedule import get_schedule
 
 def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
@@ -30,7 +30,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 构建编码器
     encoder = Encoder.from_path("encoder.json")
     # 构建模型
-    llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT).to(DEVICE)
+    llm = LLM(encoder.vocab_size, MODEL_DIM, LORA_DIM, N_BLOCKS, N_HEADS).to(DEVICE)
     print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
