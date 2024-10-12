@@ -22,7 +22,7 @@ class BinaryDataset(Dataset):
     def __len__(self) -> int:
         return self.n_lines
 
-def collate_fn(batch: list[torch.Tensor]) -> tuple[Optional[torch.Tensor]]:
+def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
     l_x = []
     l_y = []
     # l: 这是一个测试。<eos>
@@ -39,7 +39,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple[Optional[torch.Tensor]]:
     n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
     return x, y, None, n_tokens
 
-def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.Tensor]:
+def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
     l_x = []
     l_y = []
     l_m = []
@@ -54,7 +54,7 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
         line_x = line[:-1]
         line_y = line[1:]
         line_m = torch.zeros_like(line_y)
-        masked = True
+        masked = False
         for i in range(len(line_y)):
             if line_y[i] == SPECIAL_TOKENS_IDS["<ins>"]:
                 masked = True
@@ -75,7 +75,7 @@ def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.T
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("instruct_finetune.bin", MAX_LENGTH)
+    dts = BinaryDataset("finetune.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
