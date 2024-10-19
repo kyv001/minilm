@@ -42,20 +42,24 @@ class MultiHeadWKV(nn.Module):
             state1 = self.init_state
         else:
             state1 = state
+        # (H, C/H, C/H) -> (1, H, C/H, C/H)
+        state1 = state1.unsqueeze(0)
         # (B, T, C) -> (B, T, H, C/H) -> (B, H, T, C/H)
-        r = r.view(*r.size()[:-1], self.n_heads, -1).transpose(-2, -3)
-        k = k.view(*k.size()[:-1], self.n_heads, -1).transpose(-2, -3)
-        w = w.view(*w.size()[:-1], self.n_heads, -1).transpose(-2, -3)
-        v = v.view(*v.size()[:-1], self.n_heads, -1).transpose(-2, -3)
-        g = g.view(*g.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        BT = r.shape[:-1]
+        r = r.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
+        w = w.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
+        k = k.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
+        v = v.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
+        g = g.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
         # (C) -> (H, C/H) -> (1, H, C/H)
         u = self.u.view(self.n_heads, -1).unsqueeze(0)
 
         # (B, H, T, C/H, C/H)
         wkv = torch.zeros(*k.size()[:-1], k.size(-1), v.size(-1)).to(k.device)
+        diagu = self.diag(u)
         for i in range(k.size(-2)):
-            kv = k[..., i, :].mT @ v[..., i, :]
-            wkv[..., i, :, :] = state1 + self.diag(u) @ kv
+            kv = torch.einsum("...i,...j->...ij", k[..., i, :], v[..., i, :]) # 外积
+            wkv[..., i, :, :] = state1 + diagu @ kv
             state1 = self.diag(w[..., i, :]) @ state1 + kv
         o = F.silu(g) * self.ln((r.unsqueeze(-2) @ wkv).squeeze(-2))
         # (B, H, T, C/H) -> (B, T, H, C/H) -> (B, T, C)

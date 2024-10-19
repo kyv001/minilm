@@ -2,7 +2,7 @@ import torch
 import os
 
 # 模型超参数
-MAX_LENGTH = 1024
+MAX_LENGTH = 256
 MODEL_DIM = 768
 LORA_DIM = 32
 N_HEADS = MODEL_DIM // 64
