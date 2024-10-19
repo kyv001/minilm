@@ -3,10 +3,10 @@ import os
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 1024
+MODEL_DIM = 768
 LORA_DIM = 32
 N_HEADS = 8
-N_BLOCKS = 16
+N_BLOCKS = 6
 DROPOUT = 0.06
 
 # 训练超参数
@@ -14,20 +14,15 @@ TRAIN = False
 BATCH_SIZE = 1
 N_BATCHES = 60
 WARMUP_STEPS = 0
-MAX_LEARINGRATE = 4e-5
+MAX_LEARNINGRATE = 4e-5
 TARGET_STEPS = 1
-MIN_LEARINGRATE = 4e-5
+MIN_LEARNINGRATE = 4e-5
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
 # 微调数据路径（*.bin）
-<<<<<<< HEAD
 FINETUNE_DATA = "instruct_finetune.bin"
 FINETUNE = False
-=======
-FINETUNE_DATA = "finetune.bin"
-FINETUNE = True
->>>>>>> b2c3dbb06198be43d7ea27f26bbd5c112854ba6c
 N_FINETUNE_BLOCKS = 8 # 只训练最后8层防止爆显存
 SYS_PROMPT = ""
 
@@ -63,9 +58,9 @@ __all__ = [
     "BATCH_SIZE",
     "N_BATCHES",
     "WARMUP_STEPS",
-    "MAX_LEARINGRATE",
+    "MAX_LEARNINGRATE",
     "TARGET_STEPS",
-    "MIN_LEARINGRATE",
+    "MIN_LEARNINGRATE",
     "PRETRAIN_DATA",
     "FINETUNE_DATA",
     "FINETUNE",

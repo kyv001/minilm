@@ -22,7 +22,7 @@ class BinaryDataset(Dataset):
     def __len__(self) -> int:
         return self.n_lines
 
-def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
+def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     l_x = []
     l_y = []
     # l: 这是一个测试。<eos>
@@ -37,40 +37,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, O
     x = torch.stack(l_x).type_as(SPECIAL_TOKENS_TENSORS["<eos>"]) # int16 -> int防止类型不一致
     y = torch.stack(l_y).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
     n_tokens = (x != SPECIAL_TOKENS_IDS["<pad>"]).sum()
-    return x, y, None, n_tokens
-
-def collate_fn_with_instruction_mask(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
-    l_x = []
-    l_y = []
-    l_m = []
-    # l: <ins>1 + 1 = </ins>2<eos><pad>
-    # x: <ins>1 + 1 = </ins>2<eos>
-    # y: 1 + 1 = </ins>2<eos><pad>
-    # m: 00000000   0  1  1    0
-    for line in batch:
-        if len(line) < MAX_LENGTH + 1:
-            line = torch.cat((line, SPECIAL_TOKENS_TENSORS["<eos>"].unsqueeze(0)))
-            line = pad(line, (0, MAX_LENGTH + 1 - len(line)), value=SPECIAL_TOKENS_IDS["<pad>"])
-        line_x = line[:-1]
-        line_y = line[1:]
-        line_m = torch.zeros_like(line_y)
-        masked = False
-        for i in range(len(line_y)):
-            if line_y[i] == SPECIAL_TOKENS_IDS["<ins>"]:
-                masked = True
-            line_m[i] = int(not masked)
-            if line_y[i] == SPECIAL_TOKENS_IDS["</ins>"]:
-                masked = False
-        l_x.append(line_x)
-        l_y.append(line_y)
-        l_m.append(line_m)
-
-    x = torch.stack(l_x).type_as(SPECIAL_TOKENS_TENSORS["<eos>"]) # int16 -> int防止类型不一致
-    y = torch.stack(l_y).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
-    mask = torch.stack(l_m).type_as(SPECIAL_TOKENS_TENSORS["<eos>"])
-    n_tokens = (y * mask != SPECIAL_TOKENS_IDS["<pad>"]).sum()
-    return x, y, mask, n_tokens
-
+    return x, y, n_tokens
 
 if __name__ == "__main__":
     from encoder import Encoder
@@ -82,16 +49,14 @@ if __name__ == "__main__":
     print(d)
     print(e.decode(list(d)))
     print(len(e.decode(list(d))))
-    loader = DataLoader(dts, 5, True, collate_fn=collate_fn_with_instruction_mask, num_workers=2)
+    loader = DataLoader(dts, 5, True, collate_fn=collate_fn, num_workers=2)
     
     i = 0
-    for x, y, mask, n_tokens in loader:
-        print(x.shape, y.shape, mask.shape, n_tokens)
+    for x, y, n_tokens in loader:
+        print(x.shape, y.shape, n_tokens)
         i += 1
         if i > 5:
             print("Y = ")
             print(e.decode(list(y[0])))
-            print("MASKED Y = ")
-            print(e.decode(list(y[0] * mask[0])))
             print(n_tokens)
             break
