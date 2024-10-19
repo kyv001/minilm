@@ -5,8 +5,8 @@ import os
 MAX_LENGTH = 1024
 MODEL_DIM = 768
 LORA_DIM = 32
-N_HEADS = 8
-N_BLOCKS = 6
+N_HEADS = MODEL_DIM // 64
+N_BLOCKS = 4
 DROPOUT = 0.06
 
 # 训练超参数

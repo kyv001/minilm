@@ -18,76 +18,57 @@ class LoRA(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.lambd + self.b(F.tanh(self.a(x)))
 
-class WKV(nn.Module):
-    """RWKV版的注意力机制"""
-    def __init__(self, dim: int, block_id: int, n_blocks: int):
-        super().__init__()
-        r0 = block_id / (n_blocks - 1)
-        r1 = 1 - block_id / n_blocks
-        i = torch.arange(dim)
-        self.init_state = nn.Parameter(torch.empty(dim))
-        nn.init.normal_(self.init_state)
-        self.u = nn.Parameter(r0 * (1 - i / (dim - 1)) + 0.1 * (i + 1) % 3)
-
-    def forward(self, r: torch.Tensor, w: torch.Tensor, k: torch.Tensor, v: torch.Tensor, 
-                state: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
-        wkv = torch.zeros(*k.size()[:-1], k.size(-1), v.size(-1)).to(k.device)
-        state1: torch.Tensor
-        if state is None:
-            state1 = self.init_state
-        else:
-            state1 = state
-        for i in range(k.size(-2)):
-            wkv[..., i, :, :] = state1 + torch.diag(self.u) @ k[..., i, :].mT @ v[..., i, :]
-            state1 = self.diag(w[..., i, :]) @ state1 + k[..., i, :].mT @ v[..., i, :]
-
-        return (r.unsqueeze(-2) @ wkv).squeeze(-2), state1
-    
-    @staticmethod
-    def diag(wi):
-        if len(wi.shape) == 2:
-            diagw = torch.stack([torch.diag(t) for t in wi.unbind(dim=-2)])
-        else:
-            diagw = torch.diag(wi)
-        return diagw
-
 class MultiHeadWKV(nn.Module):
     """多头WKV"""
     def __init__(self, dim: int, n_heads: int, block_id: int, n_blocks: int):
         super().__init__()
         assert dim % n_heads == 0, "模型维度必须是n_heads的整数倍"
         self.n_heads = n_heads
-        self.heads = nn.ModuleList([
-            WKV(dim // n_heads, block_id, n_blocks) for _ in range(n_heads)
-        ])
         self.ln = nn.LayerNorm(dim // n_heads)
         nn.init.constant_(self.ln.weight, ((1 + block_id) / n_blocks) ** 0.7)
         self.o_proj = nn.Linear(dim, dim, bias=False)
         nn.init.zeros_(self.o_proj.weight)
+        r0 = block_id / (n_blocks - 1)
+        r1 = 1 - block_id / n_blocks
+        i = torch.arange(dim) % (dim // n_heads)
+        self.init_state = nn.Parameter(torch.empty(n_heads, dim // n_heads, dim // n_heads))
+        nn.init.normal_(self.init_state)
+        self.u = nn.Parameter(r0 * (1 - i / (dim - 1)) + 0.1 * (i + 1) % 3)
 
     def forward(self, r: torch.Tensor, w: torch.Tensor, k: torch.Tensor, v: torch.Tensor, g: torch.Tensor,
                 state: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
-        r_heads = r.chunk(self.n_heads, dim=-1)
-        w_heads = w.chunk(self.n_heads, dim=-1)
-        k_heads = k.chunk(self.n_heads, dim=-1)
-        v_heads = v.chunk(self.n_heads, dim=-1)
-        g_heads = g.chunk(self.n_heads, dim=-1)
-        state_heads: Sequence[Optional[torch.Tensor]]
+        state1: torch.Tensor
         if state is None:
-            state_heads = [None] * self.n_heads
+            state1 = self.init_state
         else:
-            state_heads = state.chunk(self.n_heads, dim=-1)
-        o_s_heads = [self.heads[i](
-            r_heads[i],
-            w_heads[i],
-            k_heads[i],
-            v_heads[i],
-            state_heads[i]
-        ) for i in range(self.n_heads)]
-        o = torch.cat([self.ln(o_s_heads[i][0]) * F.silu(g_heads[i]) for i in range(self.n_heads)], dim=-1)
-        state = torch.cat([o_s_head[1] for o_s_head in o_s_heads], dim=-1)
-        del o_s_heads, w_heads, k_heads, v_heads, g_heads, state_heads
-        return self.o_proj(o), state
+            state1 = state
+        # (B, T, C) -> (B, T, H, C/H) -> (B, H, T, C/H)
+        r = r.view(*r.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        k = k.view(*k.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        w = w.view(*w.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        v = v.view(*v.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        g = g.view(*g.size()[:-1], self.n_heads, -1).transpose(-2, -3)
+        # (C) -> (H, C/H) -> (1, H, C/H)
+        u = self.u.view(self.n_heads, -1).unsqueeze(0)
+
+        # (B, H, T, C/H, C/H)
+        wkv = torch.zeros(*k.size()[:-1], k.size(-1), v.size(-1)).to(k.device)
+        for i in range(k.size(-2)):
+            kv = k[..., i, :].mT @ v[..., i, :]
+            wkv[..., i, :, :] = state1 + self.diag(u) @ kv
+            state1 = self.diag(w[..., i, :]) @ state1 + kv
+        o = F.silu(g) * self.ln((r.unsqueeze(-2) @ wkv).squeeze(-2))
+        # (B, H, T, C/H) -> (B, T, H, C/H) -> (B, T, C)
+        o = o.transpose(-2, -3).contiguous().flatten(-2)
+
+        return self.o_proj(o), state1
+    
+    @staticmethod
+    def diag(x: torch.Tensor) -> torch.Tensor:
+        orig_shape = x.size()
+        flattened = x.view(-1, orig_shape[-1])
+        flatdiagw = torch.stack([torch.diag(f) for f in flattened.unbind(0)])
+        return flatdiagw.view(*orig_shape[:-1], orig_shape[-1], orig_shape[-1])
 
 class TimeMixing(nn.Module):
     def __init__(self, dim: int, lora_dim: int, n_heads: int, block_id: int, n_blocks: int):
@@ -117,7 +98,8 @@ class TimeMixing(nn.Module):
         v = self.v_proj(x + xxx * self.v_lora(lerpx))
         g = self.g_proj(x + xxx * self.g_lora(lerpx))
         w = torch.exp(-torch.exp(self.d_lora(x + xxx * self.d_lora(lerpx))))
-        return self.wkv(r, w, k, v, g, state)
+        out, state1 = self.wkv(r, w, k, v, g, state)
+        return out, state1
 
 class ChannelMixing(nn.Module):
     def __init__(self, dim: int, block_id: int, n_blocks: int):
