@@ -2,20 +2,19 @@ import torch
 import os
 
 # 模型超参数
-MAX_LENGTH = 256
-MODEL_DIM = 768
+MAX_LENGTH = 1024
+MODEL_DIM = 1024
 LORA_DIM = 32
 N_HEADS = MODEL_DIM // 64
 N_BLOCKS = 4
 DROPOUT = 0.06
 
 # 训练超参数
-TRAIN = False
 BATCH_SIZE = 1
-N_BATCHES = 60
-WARMUP_STEPS = 0
-MAX_LEARNINGRATE = 4e-5
-TARGET_STEPS = 1
+N_BATCHES = 20
+WARMUP_STEPS = 200
+MAX_LEARNINGRATE = 3e-4
+TARGET_STEPS = 10000
 MIN_LEARNINGRATE = 4e-5
 
 # 预训练数据路径（*.jsonl.bin）
@@ -40,12 +39,12 @@ SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "ckpt.pt"
+PRETRAINED_STATE_DICT_PATH = None
 FINETUNED_STATE_DICT_PATH = None
 START_STEP = 0
 
 # Loss数据记录文件
-LOSSES_LOG_PATH = "losses_finetune.log"
+LOSSES_LOG_PATH = "losses.log"
 
 __all__ = [
     "MAX_LENGTH",
@@ -54,7 +53,6 @@ __all__ = [
     "N_HEADS",
     "N_BLOCKS",
     "DROPOUT",
-    "TRAIN",
     "BATCH_SIZE",
     "N_BATCHES",
     "WARMUP_STEPS",

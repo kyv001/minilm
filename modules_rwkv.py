@@ -46,11 +46,11 @@ class MultiHeadWKV(nn.Module):
         state1 = state1.unsqueeze(0)
         # (B, T, C) -> (B, T, H, C/H) -> (B, H, T, C/H)
         BT = r.shape[:-1]
-        r = r.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
-        w = w.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
-        k = k.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
-        v = v.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
-        g = g.view(*BT, self.n_heads, -1).transpose(-2, -3).contiguous()
+        r = r.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
+        w = w.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
+        k = k.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
+        v = v.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
+        g = g.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
         # (C) -> (H, C/H) -> (1, H, C/H)
         u = self.u.view(self.n_heads, -1).unsqueeze(0)
 
@@ -61,18 +61,19 @@ class MultiHeadWKV(nn.Module):
             kv = torch.einsum("...i,...j->...ij", k[..., i, :], v[..., i, :]) # 外积
             wkv[..., i, :, :] = state1 + diagu @ kv
             state1 = self.diag(w[..., i, :]) @ state1 + kv
+            del kv
         o = F.silu(g) * self.ln((r.unsqueeze(-2) @ wkv).squeeze(-2))
         # (B, H, T, C/H) -> (B, T, H, C/H) -> (B, T, C)
-        o = o.transpose(-2, -3).contiguous().flatten(-2)
+        o = o.permute((0, 2, 1, 3)).view(*BT, -1)
 
         return self.o_proj(o), state1
     
     @staticmethod
     def diag(x: torch.Tensor) -> torch.Tensor:
         orig_shape = x.size()
-        flattened = x.view(-1, orig_shape[-1])
-        flatdiagw = torch.stack([torch.diag(f) for f in flattened.unbind(0)])
-        return flatdiagw.view(*orig_shape[:-1], orig_shape[-1], orig_shape[-1])
+        return torch.stack(
+            [f.diag() for f in x.reshape(-1, orig_shape[-1]).unbind(0)]
+        ).view(*orig_shape[:-1], orig_shape[-1], orig_shape[-1])
 
 class TimeMixing(nn.Module):
     def __init__(self, dim: int, lora_dim: int, n_heads: int, block_id: int, n_blocks: int):
@@ -169,7 +170,7 @@ class LLM(nn.Module):
             states_i = states # type: ignore # 此处的states不可能是None，而是list[torch.Tensor]
         for i in range(len(self.blocks)):
             x, s = self.blocks[i](x, states_i[i])
-            states1.append(s)
+            states1.append(s.detach())
         x = self.ln2(x)
         x = self.lmhead(x)
         return x, states1

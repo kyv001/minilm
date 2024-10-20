@@ -30,7 +30,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 构建编码器
     encoder = Encoder.from_path("encoder.json")
     # 构建模型
-    llm = LLM(encoder.vocab_size, MODEL_DIM, LORA_DIM, N_BLOCKS, N_HEADS).to(DEVICE)
+    llm = LLM(encoder.vocab_size, MODEL_DIM, LORA_DIM, N_BLOCKS, N_HEADS, MAX_LEARNINGRATE).to(DEVICE)
     print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
@@ -51,7 +51,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 切换到训练模式
     llm.train()
     # 构建优化器
-    optimizer = optim.AdamW(llm.parameters(), fused=True)
+    optimizer = optim.AdamW(llm.parameters(), fused=True, weight_decay=0, betas=(0.9, 0.99))
     # 构建学习率调度器
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARNINGRATE, TARGET_STEPS, MIN_LEARNINGRATE)
     # 构建数据加载器
@@ -87,7 +87,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
 
         x = x.to(DEVICE)
         y = y.to(DEVICE)
-        res = llm(x)
+        res, _ = llm(x)
         loss = F.cross_entropy(
             res.view(-1, res.size(-1)),
             y.view(-1),
@@ -103,6 +103,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         if IS_MASTER:
             print(f"{loss.item() * N_BATCHES:.3f} {microstep % N_BATCHES + 1}/{N_BATCHES} {time.time() - t1:.3f}s/batch", end="\r")
         del loss # 结束一次反向传播
+        torch.cuda.empty_cache() # 清理显存
 
         microstep += 1
         if microstep % N_BATCHES == 0: # 一次完整的学习的结束

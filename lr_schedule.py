@@ -5,7 +5,7 @@ def get_schedule(warmup_steps: int, max_lr: float, target_steps: int, min_lr: fl
     # 带预热的余弦退火
     def get_lr(step: int) -> float:
         if step <= warmup_steps:
-            return max_lr / warmup_steps * step
+            return (max_lr * 0.8) / warmup_steps * step + max_lr * 0.2
         if step <= target_steps:
             # (warmup_steps, target_steps] -> (0, pi] -cos-> (1, -1]
             # (1, -1] -> (max_lr, min_lr]
