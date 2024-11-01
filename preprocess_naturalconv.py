@@ -6,26 +6,28 @@ from tqdm import tqdm
 from config import *
 from encoder import Encoder
 
-def preprocess(fname: str, encoder: Encoder): # <ins>A/B</ins>content<eos>
+def preprocess(fname: str, encoder: Encoder):
     with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
         lines = json.load(f_in)
+        i = 0
+        data = []
         for j in tqdm(lines):
-            data = [SPECIAL_TOKENS_IDS["<ins>"]]
             is_a = True
-            for turn in j["content"]:
+            start = 2 if i else 0
+            for turn in j["content"][start:-4]:
                 data += (
-                    [SPECIAL_TOKENS_IDS["<ins>"]] +
-                    encoder.encode("A" if is_a else "B") +
-                    [SPECIAL_TOKENS_IDS["</ins>"]] +
-                    encoder.encode(turn) + 
-                    [SPECIAL_TOKENS_IDS["<eos>"]]
+                    encoder.encode(f"{'甲' if is_a else '乙'}：" + turn + "\n\n")
                 )
                 is_a = not is_a
-            arr = np.array(
-                data + [SPECIAL_TOKENS_IDS["<pad>"]] * (MAX_LENGTH + 1 - len(data) % (MAX_LENGTH + 1)),
-                dtype=np.int16
-            )
-            f_out.write(arr.tobytes())
+            i += 1
+            if i % 1000 == 0:
+                i = 0
+                arr = np.array(
+                    data + [SPECIAL_TOKENS_IDS["<pad>"]] * (MAX_LENGTH + 1 - len(data) % (MAX_LENGTH + 1)),
+                    dtype=np.int16
+                )
+                f_out.write(arr.tobytes())
+                data = []
 
 if __name__ == "__main__":
     import sys

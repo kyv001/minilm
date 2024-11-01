@@ -27,8 +27,8 @@ def infer():
                 if not FINETUNE:
                     encoded_prompt = encoder.encode(prompt)
                 else:
-                    encoded_prompt = [
-                        *encoder.encode("用户：" + prompt + "\n\nMiniLM："),
+                    encoded_prompt += [
+                        *encoder.encode("甲：" + prompt + "\n\n乙："),
                     ]
                 x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)
                 while True:
@@ -38,10 +38,15 @@ def infer():
                         token = indices[torch.multinomial(probs, 1)].unsqueeze(0)
                         x = torch.cat([x, token], dim=1)[:, -MAX_LENGTH:, ...]
                         code = int(token[0].item())
-                        if code == SPECIAL_TOKENS_IDS["<eos>"]:
-                            print()
-                            encoded_prompt = x.squeeze().tolist()
-                            break
+                        if not FINETUNE:
+                            if code == SPECIAL_TOKENS_IDS["<eos>"]:
+                                print()
+                                break
+                        else:
+                            if code == encoder.encode("\n")[0]:
+                                print()
+                                encoded_prompt = x.squeeze().tolist() + encoder.encode("\n")
+                                break
                         print(encoder.decode([code]), end="", flush=True)
                     except KeyboardInterrupt:
                         print()

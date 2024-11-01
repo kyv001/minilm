@@ -18,17 +18,19 @@ MiniLM：{output}
     """
     with open(fname) as f_in, open(fname + ".bin", "ba") as f_out:
         lines = json.load(f_in)
+        data: list[int] = []
         for j in tqdm(lines):
-            instr = j["instruction"]
-            inp = j["input"]
-            out = j["output"]
-            data = [*encoder.encode("用户：" + instr + "\n" + inp + "\n\n"),
-                    *encoder.encode("MiniLM：" + out + "\n\n"), SPECIAL_TOKENS_IDS["<eos>"]][:MAX_LENGTH + 1]
-            arr = np.array(
-                data + [SPECIAL_TOKENS_IDS["<pad>"]] * (MAX_LENGTH - len(data) + 1),
-                dtype=np.int16
-            )
-            f_out.write(arr.tobytes())
+            instr = j["instruction"].replace("\n", "")
+            inp = j["input"].replace("\n", "")
+            out = j["output"].replace("\n", "")
+            if len(data) > MAX_LENGTH + 1:
+                data = data[:MAX_LENGTH + 1]
+                arr = np.array(
+                    data,
+                    dtype=np.int16
+                )
+                f_out.write(arr.tobytes())
+                data = []
 
 if __name__ == "__main__":
     import sys
