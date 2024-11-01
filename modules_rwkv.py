@@ -31,19 +31,21 @@ class MultiHeadWKV(nn.Module):
         r0 = block_id / (n_blocks - 1)
         r1 = 1 - block_id / n_blocks
         i = torch.arange(dim) % (dim // n_heads)
-        self.init_state = nn.Parameter(torch.empty(n_heads, dim // n_heads, dim // n_heads))
-        nn.init.normal_(self.init_state)
+        init_state = torch.zeros(n_heads, dim // n_heads, dim // n_heads)
+        self.register_buffer("init_state", init_state)
         self.u = nn.Parameter(r0 * (1 - i / (dim - 1)) + 0.1 * (i + 1) % 3)
 
     def forward(self, r: torch.Tensor, w: torch.Tensor, k: torch.Tensor, v: torch.Tensor, g: torch.Tensor,
                 state: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
+        """纯Python实现，慢到离大谱"""
         state1: torch.Tensor
         if state is None:
             state1 = self.init_state
         else:
             state1 = state
         # (H, C/H, C/H) -> (1, H, C/H, C/H)
-        state1 = state1.unsqueeze(0)
+        if state1.dim() == 3:
+            state1 = state1.unsqueeze(0)
         # (B, T, C) -> (B, T, H, C/H) -> (B, H, T, C/H)
         BT = r.shape[:-1]
         r = r.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
@@ -51,29 +53,23 @@ class MultiHeadWKV(nn.Module):
         k = k.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
         v = v.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
         g = g.view(*BT, self.n_heads, -1).permute((0, 2, 1, 3))
-        # (C) -> (H, C/H) -> (1, H, C/H)
-        u = self.u.view(self.n_heads, -1).unsqueeze(0)
+        # (C) -> (H, C/H) -> (1, H, C/H) -> (1, H, 1, C/H)
+        u = self.u.view(self.n_heads, -1).unsqueeze(0).unsqueeze(-2)
 
         # (B, H, T, C/H, C/H)
-        wkv = torch.zeros(*k.size()[:-1], k.size(-1), v.size(-1)).to(k.device)
-        diagu = self.diag(u)
-        for i in range(k.size(-2)):
-            kv = torch.einsum("...i,...j->...ij", k[..., i, :], v[..., i, :]) # 外积
-            wkv[..., i, :, :] = state1 + diagu @ kv
-            state1 = self.diag(w[..., i, :]) @ state1 + kv
-            del kv
+        wkv = torch.zeros(*k.size(), v.size(-1)).to(k.device)
+        for i in range(k.size(-2)): # 抄自原论文
+            _w = w[..., i, :].unsqueeze(-2)
+            _k = k[..., i, :].unsqueeze(-2)
+            _v = v[..., i, :].unsqueeze(-2)
+            kv = _k.mT @ _v
+            wkv[..., i, :, :] = state1 + u.mT * kv
+            state1 = _w.mT * state1 + kv
         o = F.silu(g) * self.ln((r.unsqueeze(-2) @ wkv).squeeze(-2))
         # (B, H, T, C/H) -> (B, T, H, C/H) -> (B, T, C)
         o = o.permute((0, 2, 1, 3)).view(*BT, -1)
 
         return self.o_proj(o), state1
-    
-    @staticmethod
-    def diag(x: torch.Tensor) -> torch.Tensor:
-        orig_shape = x.size()
-        return torch.stack(
-            [f.diag() for f in x.reshape(-1, orig_shape[-1]).unbind(0)]
-        ).view(*orig_shape[:-1], orig_shape[-1], orig_shape[-1])
 
 class TimeMixing(nn.Module):
     def __init__(self, dim: int, lora_dim: int, n_heads: int, block_id: int, n_blocks: int):
@@ -140,7 +136,8 @@ class Block(nn.Module):
 
     def forward(self, x: torch.Tensor, state: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
         x1, state1 = self.time_mixing(self.ln1(x), state)
-        x = x1 + x + self.channel_mixing(self.ln2(x))
+        x = x + x1
+        x = x + self.channel_mixing(self.ln2(x))
         return x, state1
 
 class LLM(nn.Module):
