@@ -5,7 +5,7 @@ from torch import nn, optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from config import *
-from dataloader import BinaryDataset, collate_fn, collate_fn_with_instruction_mask
+from dataloader import BinaryDataset, collate_fn
 from encoder import Encoder
 from modules import LLM
 from lr_schedule import get_schedule
@@ -31,7 +31,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     encoder = Encoder.from_path("encoder.json")
     # 构建模型
     llm = LLM(encoder.vocab_size, MODEL_DIM, MAX_LENGTH, N_HEADS, N_BLOCKS, DROPOUT).to(DEVICE)
-    print(f"{sum(para.numel() for para in llm.parameters())} parameters.")
+    print(f"{sum(para.numel() for para in llm.parameters()) / 1e6:.3f}M parameters.")
     # 如果有的话，加载检查点模型
     if PRETRAINED_STATE_DICT_PATH:
         llm.load_state_dict(torch.load(PRETRAINED_STATE_DICT_PATH, weights_only=True))
@@ -43,11 +43,11 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 编译模型加快速度
     torch.set_float32_matmul_precision('high')
     print("Compiling module")
-    llm = torch.compile(llm)
+    llm = torch.compile(llm) # type: ignore
     print("Compiled successfully")
     # 如果使用DDP，将模型分布到各个显卡上
     if WORLD_SIZE > 1:
-        llm = DDP(llm, device_ids=[RANK])
+        llm = DDP(llm, device_ids=[RANK]) # type: ignore
     # 切换到训练模式
     llm.train()
     # 构建优化器
@@ -60,7 +60,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=4,
-        collate_fn=collate_fn_with_instruction_mask if FINETUNE else collate_fn, # 选择是否使用掩码
+        collate_fn=collate_fn,
     )
 
     print(f"{RANK + 1}/{WORLD_SIZE} start training.")
@@ -69,45 +69,32 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     microstep = 0
     total_microsteps = len(loader)
     torch.autograd.set_detect_anomaly(True) # 也许可以在梯度爆炸时发出警告
-    for x, y, mask, n_tokens in loader:
-        if mask is not None and mask.sum() == 0: # 跳过空的batch
-            continue
+    for x, y, n_tokens in loader:
         if microstep % N_BATCHES == 0: # 一次完整的学习的开始
             t0 = time.time()
             step += 1
             lr = schedule(step)
             for group in optimizer.param_groups:
                 group["lr"] = lr
-            total_loss = 0
+            total_loss = 0.0
             total_tokens = 0
         
-        if USE_DDP:                                                                   # 多卡学习中，这是否是一次完整
-            llm.require_backward_grad_sync = (microstep % N_BATCHES == N_BATCHES - 1) # 的学习中的最后一次反向传播？
-                                                                                      # 是则需要进行多卡同步
+        if USE_DDP:                                                                                  # 多卡学习中，这是否是一次完整
+            llm.require_backward_grad_sync = (microstep % N_BATCHES == N_BATCHES - 1) # type: ignore # 的学习中的最后一次反向传播？
+                                                                                                     # 是则需要进行多卡同步
         t1 = time.time() # 开始一次反向传播
 
         x = x.to(DEVICE)
         y = y.to(DEVICE)
         res = llm(x)
-        if FINETUNE and mask.sum() > 0: # 防止除以0导致loss为nan
-            mask = mask.to(DEVICE)
-            loss = (F.cross_entropy(
-                res.view(-1, res.size(-1)),
-                y.view(-1),
-                reduction="none",
-                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-            ) * mask.view(-1)).sum() / n_tokens / N_BATCHES
-        elif not FINETUNE:
-            loss = F.cross_entropy(
-                res.view(-1, res.size(-1)),
-                y.view(-1),
-                reduction="mean",
-                ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
-            ) / N_BATCHES
-        else:
-            continue
+        loss = F.cross_entropy(
+            res.view(-1, res.size(-1)),
+            y.view(-1),
+            reduction="mean",
+            ignore_index=SPECIAL_TOKENS_IDS["<pad>"]
+        ) / N_BATCHES
 
-        del x, y, res, mask
+        del x, y, res
         loss.backward()
         total_loss += loss.item()
         total_tokens += n_tokens.item()
