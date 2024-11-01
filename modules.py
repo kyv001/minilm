@@ -1,6 +1,20 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from config import *
+
+class LoRA(nn.Module):
+    def __init__(self, dim: int, lora_dim: int):
+        super().__init__()
+        self.a = nn.Linear(dim, lora_dim, bias=False)
+        nn.init.normal_(self.a.weight, std=10e-4)
+        self.b = nn.Linear(lora_dim, dim, bias=False)
+        nn.init.normal_(self.b.weight, std=10e-4)
+        self.lambd = nn.Parameter(torch.empty(dim))
+        nn.init.normal_(self.lambd)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.lambd + self.b(F.tanh(self.a(x)))
 
 class RotatoryPositionalEncoding(nn.Module):
     """旋转位置编码"""
@@ -34,25 +48,34 @@ class RotatoryPositionalEncoding(nn.Module):
         y_imag = x_real * pos_sin + x_imag * pos_cos
         return torch.cat([y_real, y_imag], dim=-1)
 
-class MLP(nn.Module):
-    """Feed forward层，一个普通的多层感知机"""
-    def __init__(self, dim: int, dropout: float):
+class ChannelMixing(nn.Module):
+    """来源于RWKV的通道混合"""
+    def __init__(self, dim: int, block_id: int, n_blocks: int):
         super().__init__()
-        self.linear1 = nn.Linear(dim, dim * 4)
-        self.linear2 = nn.Linear(dim, dim * 4)
-        self.proj = nn.Linear(dim * 4, dim)
-        self.silu = nn.SiLU()
-        self.dropout = nn.Dropout(dropout)
+        r0 = block_id / (n_blocks - 1)
+        r1 = 1 - block_id / n_blocks
+        i = torch.arange(dim)
+        self.r_proj = nn.Linear(dim, dim, bias=False)
+        nn.init.zeros_(self.r_proj.weight)
+        self.k_proj = nn.Linear(dim, dim * 4, bias=False)
+        nn.init.orthogonal_(self.k_proj.weight, gain=4)
+        self.v_proj = nn.Linear(dim * 4, dim, bias=False)
+        nn.init.zeros_(self.v_proj.weight)
+        self.r_weight = nn.Parameter(1 - (i / dim) ** r1)
+        self.k_weight = nn.Parameter(1 - (i / dim) ** r1)
+        self.pad = nn.ZeroPad2d((0, 0, 1, -1))
 
-    def forward(self, x: torch.Tensor):
-        x1 = self.linear1(x)
-        x2 = self.linear2(x)
-        y = self.proj(self.silu(x1) * x2)
-        return self.dropout(y)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        xx = self.pad(x)
+        xxx = xx - x
+        r = self.r_proj(x + xxx * self.r_weight)
+        k = self.k_proj(x + xxx * self.k_weight)
+        v = self.v_proj(F.relu(k) ** 2)
+        return F.sigmoid(r) * v
 
 class CausalSelfAttention(nn.Module):
     """带因果关系的多头自注意力，使用Flash Attention和RoPE"""
-    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float):
+    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float, lora_dim: int):
         super().__init__()
         assert dim % n_heads == 0
         self.n_heads = n_heads
@@ -60,18 +83,27 @@ class CausalSelfAttention(nn.Module):
         self.q_proj = nn.Linear(dim, dim, bias=False)
         self.k_proj = nn.Linear(dim, dim, bias=False)
         self.v_proj = nn.Linear(dim, dim, bias=False)
+        self.q_lora = LoRA(dim, lora_dim)
+        self.k_lora = LoRA(dim, lora_dim)
+        self.v_lora = LoRA(dim, lora_dim)
+        self.pad = nn.ZeroPad2d((0, 0, 1, -1))
         self.proj = nn.Linear(dim, dim)
         self.pe = RotatoryPositionalEncoding(self.head_dim, max_length)
         self.dropout = dropout
 
     def forward(self, x: torch.Tensor):
         B, T, _ = x.shape
+        xx = self.pad(x) # 来自RWKV的Token Shifting
+        xxx = xx - x
+        q = self.q_proj(x + xxx * self.q_lora(x))
+        k = self.k_proj(x + xxx * self.k_lora(x))
+        v = self.v_proj(x + xxx * self.v_lora(x))
         # (B, T, V) -proj-> (B, T, V)
         # -view-> (B, T, n_heads, head_dim)
         # -T(1, 2)-> (B, n_heads, T, head_dim)
-        q = self.pe(self.q_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2))
-        k = self.pe(self.k_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2))
-        v = self.v_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)
+        q = self.pe(q.view(B, T, self.n_heads, -1).transpose(1, 2))
+        k = self.pe(k.view(B, T, self.n_heads, -1).transpose(1, 2))
+        v = v.view(B, T, self.n_heads, -1).transpose(1, 2)
         # (B, n_heads, T, head_dim) -T(1, 2) -> (B, T, n_heads, head_dim)
         # -view-> (B, T, V)
         x = (
@@ -85,16 +117,16 @@ class CausalSelfAttention(nn.Module):
 
 class Block(nn.Module):
     """一个Decoder块"""
-    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float):
+    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float, block_id: int, n_blocks: int):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
-        self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout)
+        self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout, 64)
         self.ln2 = nn.LayerNorm(dim)
-        self.mlp = MLP(dim, dropout)
+        self.cmix = ChannelMixing(dim, block_id, n_blocks)
 
     def forward(self, x: torch.Tensor):
         x = x + self.attn(self.ln1(x))
-        x = x + self.mlp(self.ln2(x))
+        x = x + self.cmix(self.ln2(x))
         return x
 
 class LLM(nn.Module):
@@ -104,7 +136,7 @@ class LLM(nn.Module):
         super().__init__()
         self.wte = nn.Embedding(vocab_size, dim)
         self.blocks = nn.ModuleList([
-            Block(dim, max_length, n_heads, dropout) for _ in range(n_blocks)
+            Block(dim, max_length, n_heads, dropout, block_id=_, n_blocks=n_blocks) for _ in range(n_blocks)
         ])
         self.ln = nn.LayerNorm(dim)
         self.lmhead = nn.Linear(dim, vocab_size)
