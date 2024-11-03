@@ -60,6 +60,7 @@ tornado==6.4.1
 tqdm==4.66.5
 traitlets==5.14.3
 triton==3.0.0
+types-tqdm==4.66.0.20240417
 typing_extensions==4.12.2
 wcwidth==0.2.13
 zipp==3.20.1
