@@ -14,3 +14,4 @@ pretrained*
 *.log
 alpaca*
 dialog_release.json
+openwebtext
