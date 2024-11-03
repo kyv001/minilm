@@ -8,6 +8,7 @@ part-*.json
 *.bin
 *.so
 *.c
+*.h
 .vscode
 _encoder/build
 pretrained*
@@ -15,3 +16,4 @@ pretrained*
 alpaca*
 dialog_release.json
 openwebtext
+build
