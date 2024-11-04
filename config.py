@@ -1,5 +1,6 @@
 import torch
 import os
+from encoder import Encoder
 
 # 模型超参数
 MAX_LENGTH = 1024
@@ -17,36 +18,32 @@ DROPOUT = 0.06
 # 训练超参数
 TRAIN = False
 BATCH_SIZE = 1
-N_BATCHES = 60
-WARMUP_STEPS = 0
-MAX_LEARINGRATE = 4e-5
-TARGET_STEPS = 1
-MIN_LEARINGRATE = 4e-5
+N_BATCHES = 200
+WARMUP_STEPS = 4000
+MAX_LEARINGRATE = 5e-4
+TARGET_STEPS = 1000000
+MIN_LEARINGRATE = 5e-5
 
 # 预训练数据路径（*.jsonl.bin）
-PRETRAIN_DATA = "WuDaoCorpus2.0_base_200G/part_0.bin"
+PRETRAIN_DATA = "openwebtext/openwebtext-5000lines.txt.bin"
 # 微调数据路径（*.bin）
 FINETUNE_DATA = "finetune.bin"
-FINETUNE = True
+FINETUNE = False
 N_FINETUNE_BLOCKS = 10 # 防止爆显存
 SYS_PROMPT = ""
 
 # 特殊token
+encoder = Encoder.from_path("encoder.json")
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
-SPECIAL_TOKENS_IDS = {
-    "<pad>": 0,
-    "<eos>": 1,
-    "<ins>": 2,
-    "</ins>": 3
-}
+SPECIAL_TOKENS_IDS = {token_name: encoder.encode(token_name)[0] for token_name in SPECIAL_TOKENS}
 SPECIAL_TOKENS_TENSORS: dict[str, torch.Tensor] = {
     token_name: torch.tensor(SPECIAL_TOKENS_IDS[token_name])
     for token_name in SPECIAL_TOKENS_IDS.keys()
 }
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "ckpt.pt"
-FINETUNED_STATE_DICT_PATH = "llm426_finetune_state_dict_0.9825349729508162.pt"
+PRETRAINED_STATE_DICT_PATH = None
+FINETUNED_STATE_DICT_PATH = None
 START_STEP = 0
 
 # Loss数据记录文件
