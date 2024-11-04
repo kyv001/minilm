@@ -32,8 +32,8 @@ class Encoder:
     @classmethod
     def from_string(cls, s: str, given_tokens: list, target_vocab_size: int):
         assert len(given_tokens) < target_vocab_size, "给定的词表不能超过目标词表大小"
-        vocab_set = build_vocab(s, target_vocab_size)
-        vocab = given_tokens + list(vocab_set)[:target_vocab_size - len(given_tokens)]
+        vocab_set = build_vocab(s, target_vocab_size - len(given_tokens))
+        vocab = given_tokens + list(vocab_set)
         return cls(vocab)
 
     @classmethod
@@ -50,9 +50,12 @@ if __name__ == '__main__':
         exit(1)
     path = sys.argv[1]
     target_vocab_size = int(sys.argv[2])
+    print(f"从{path}构建{target_vocab_size}大小的词表……")
+    print("-->读取数据中……")
     with open(path, "r") as f:
         s = f.read().replace("\n\n", "\n")
     with open("hanzi.txt", "r") as f:
         hanzi = list(f.read())
+    print("-->构建词表中……")
     encoder = Encoder.from_string(s, SPECIAL_TOKENS + hanzi, target_vocab_size)
     encoder.save("encoder.json")

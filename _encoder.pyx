@@ -4,9 +4,10 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
             .replace("\r", " \r ")
             .replace("\t", " \t ")
             .split(" ")) # 保留\n、\r等特殊空白字符
-    f: list[tuple[list[str], int]] = []
-    for w in set(l):
-        f.append((list(w) + ["</w>"], l.count(w)))
+    fdict: dict[str, int] = {}
+    for w in l:
+        fidct[w] = fdict.get(w, 0) + 1
+    f = [(list(k) + ["</w>"], v) for k, v in fdict.items()]
     
     vocab_set: set[str] = set()
     cdef int j = 0
@@ -14,8 +15,6 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
         # 计算序列对频率
         pairs: dict[tuple[str, str], int] = {}
         for wl, c in f:
-            if len(wl) == 1:
-                continue
             for j in range(len(wl) - 1):
                 p = wl[j], wl[j+1]
                 pairs[p] = pairs.get(p, 0) + c
