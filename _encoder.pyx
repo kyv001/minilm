@@ -6,7 +6,7 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
             .split(" ")) # 保留\n、\r等特殊空白字符
     fdict: dict[str, int] = {}
     for w in l:
-        fidct[w] = fdict.get(w, 0) + 1
+        fdict[w] = fdict.get(w, 0) + 1
     f = [(list(k) + ["</w>"], v) for k, v in fdict.items()]
     
     vocab_set: set[str] = set()
