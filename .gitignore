@@ -17,3 +17,5 @@ alpaca*
 dialog_release.json
 openwebtext
 build
+.*
+!.gitignore
