@@ -10,11 +10,12 @@ class Encoder:
     ## TODO: Implement BPE
     def __init__(self, vocab: list):
         self.vocab = sorted(vocab, key=lambda x: len(x), reverse=True)
+        self.vdict = {w: i for i, w in enumerate(self.vocab)}
         self.vocab_size = len(vocab)
         self.max_token_length = max(len(w) for w in vocab)
 
     def encode(self, string: str) -> list:
-        return encode(self.vocab, self.vocab_size, self.max_token_length, string)
+        return encode(self.vdict, self.vocab_size, self.max_token_length, string)
 
     def decode(self, codes: list) -> str:
         s = ""

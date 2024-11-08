@@ -43,7 +43,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, t
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("openwebtext/openwebtext-5000lines.txt.bin", MAX_LENGTH)
+    dts = BinaryDataset("openwebtext/openwebtext.txt.bin", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")

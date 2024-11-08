@@ -8,8 +8,7 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
     for w in l:
         fdict[w] = fdict.get(w, 0) + 1
     f = [(list(k) + ["</w>"], v) for k, v in fdict.items()]
-    
-    vocab_set: set[str] = set()
+
     cdef int j = 0
     while True:
         # 计算序列对频率
@@ -45,6 +44,7 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
         f = new_f
 
         # 更新词表
+        vocab_set = set()
         for wl, c in f:
             vocab_set.update(wl)
         vocab_size = len(vocab_set)
@@ -57,18 +57,22 @@ def build_vocab(s: str, target_vocab_size: int) -> set[str]:
     
     return vocab_set
 
-def encode(vocab: list[str], vocab_size: int, max_token_length: int, s: str):
-    l = s.split(" ") # 保留\n、\r等特殊空白字符
+def encode(vdict: dict[str, int], vocab_size: int, max_token_length: int, s: str):
+    l = (s
+            .replace("\n", " \n ")
+            .replace("\r", " \r ")
+            .replace("\t", " \t ")
+            .split(" ")) # 保留\n、\r等特殊空白字符
     codes = []
     for w in l:
         w += "</w>"
         while w:
-            window = w[:max_token_length]
-            matches = [i for i, v in enumerate(vocab) if window.startswith(v)]
-            if not matches:
+            for i in range(max_token_length, 0, -1):
+                if w[:i] in vdict:
+                    codes.append(vdict[w[:i]])
+                    w = w[i:]
+                    break
+            else:
                 codes.append(vocab_size)
                 w = w[1:]
-            else:
-                codes.append(matches[0])
-                w = w[len(vocab[matches[0]]):]
     return codes
