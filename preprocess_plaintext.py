@@ -23,11 +23,19 @@ def preprocess(fname: str, encoder: Encoder):
         p.start()
         procs.append(p)
 
-    with open(fname, "r", encoding="utf-8") as f_in, open(fname + ".bin", "wb") as f_out:
+    with open(fname, "r", encoding="utf-8") as f_in:
+        content = ""
+        blankline_count = 0
         for line in tqdm(f_in):
             line = line.strip()
-            if len(line) >= 30:
-                qi.put(line)
+            if line:
+                blankline_count = 0
+                content += line + " "
+            else:
+                blankline_count += 1
+                if blankline_count > 2 and content:
+                    qi.put(content)
+                    content = ""
 
     for i in range(32):
         qi.put(None)

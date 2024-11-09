@@ -1,20 +1,11 @@
+# Nvidia的新模型：nGPT
+
 import torch
 from torch import nn
 import torch.nn.functional as F
 from config import *
 
-class LoRA(nn.Module):
-    def __init__(self, dim: int, lora_dim: int):
-        super().__init__()
-        self.a = nn.Linear(dim, lora_dim, bias=False)
-        nn.init.normal_(self.a.weight, std=10e-4)
-        self.b = nn.Linear(lora_dim, dim, bias=False)
-        nn.init.normal_(self.b.weight, std=10e-4)
-        self.lambd = nn.Parameter(torch.empty(dim))
-        nn.init.normal_(self.lambd)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.lambd + self.b(F.tanh(self.a(x)))
+normalize = lambda x: F.normalize(x, dim=-1)
 
 class RotatoryPositionalEncoding(nn.Module):
     """旋转位置编码"""
@@ -47,35 +38,43 @@ class RotatoryPositionalEncoding(nn.Module):
         y_real = x_real * pos_cos - x_imag * pos_sin
         y_imag = x_real * pos_sin + x_imag * pos_cos
         return torch.cat([y_real, y_imag], dim=-1)
-
-class ChannelMixing(nn.Module):
-    """来源于RWKV的通道混合"""
-    def __init__(self, dim: int, block_id: int, n_blocks: int):
+        
+class MLP(nn.Module):
+    def __init__(self, dim: int, hidden_dim: int, dropout: float):
         super().__init__()
-        r0 = block_id / (n_blocks - 1)
-        r1 = 1 - block_id / n_blocks
-        i = torch.arange(dim)
-        self.r_proj = nn.Linear(dim, dim, bias=False)
-        nn.init.zeros_(self.r_proj.weight)
-        self.k_proj = nn.Linear(dim, dim * 4, bias=False)
-        nn.init.orthogonal_(self.k_proj.weight, gain=4)
-        self.v_proj = nn.Linear(dim * 4, dim, bias=False)
-        nn.init.zeros_(self.v_proj.weight)
-        self.r_weight = nn.Parameter(1 - (i / dim) ** r1)
-        self.k_weight = nn.Parameter(1 - (i / dim) ** r1)
-        self.pad = nn.ZeroPad2d((0, 0, 1, -1))
+        self.dim = dim
+        self.u_proj = nn.Linear(dim, hidden_dim, bias=False)
+        self.v_proj = nn.Linear(dim, hidden_dim, bias=False)
+        self.o_proj = nn.Linear(hidden_dim, dim, bias=False)
+        self.dropout = nn.Dropout(dropout)
+
+        # uv的缩放因子
+        suinit = torch.tensor(1.0)
+        suscale = torch.tensor(1.0)
+        self.register_buffer('suinit', suinit)
+        self.register_buffer('suscale', suscale)
+        self.su = nn.Parameter(suscale.detach()) # su可以是一个标量
+        svinit = torch.tensor(1.0)
+        svscale = torch.tensor(1.0)
+        self.register_buffer('svinit', svinit)
+        self.register_buffer('svscale', svscale)
+        self.sv = nn.Parameter(torch.ones(hidden_dim) * svscale)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        xx = self.pad(x)
-        xxx = xx - x
-        r = self.r_proj(x + xxx * self.r_weight)
-        k = self.k_proj(x + xxx * self.k_weight)
-        v = self.v_proj(F.relu(k) ** 2)
-        return F.sigmoid(r) * v
+        actual_su = self.su * self.suinit / self.suscale
+        actual_sv = self.sv * self.svinit / self.svscale
+        u = self.u_proj(x) * actual_su
+        v = self.v_proj(x) * actual_sv * self.dim ** 0.5
+        return self.o_proj(self.dropout(u * nn.functional.silu(v)))
+
+    def normalize(self) -> None:
+        self.u_proj.weight.data = normalize(self.u_proj.weight.data)
+        self.v_proj.weight.data = normalize(self.v_proj.weight.data)
+        self.o_proj.weight.data = normalize(self.o_proj.weight.data)
 
 class CausalSelfAttention(nn.Module):
     """带因果关系的多头自注意力，使用Flash Attention和RoPE"""
-    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float, lora_dim: int):
+    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float):
         super().__init__()
         assert dim % n_heads == 0
         self.n_heads = n_heads
@@ -83,50 +82,64 @@ class CausalSelfAttention(nn.Module):
         self.q_proj = nn.Linear(dim, dim, bias=False)
         self.k_proj = nn.Linear(dim, dim, bias=False)
         self.v_proj = nn.Linear(dim, dim, bias=False)
-        self.q_lora = LoRA(dim, lora_dim)
-        self.k_lora = LoRA(dim, lora_dim)
-        self.v_lora = LoRA(dim, lora_dim)
-        self.pad = nn.ZeroPad2d((0, 0, 1, -1))
-        self.proj = nn.Linear(dim, dim)
+        self.o_proj = nn.Linear(dim, dim, bias=False)
         self.pe = RotatoryPositionalEncoding(self.head_dim, max_length)
         self.dropout = dropout
 
+        # QK的缩放因子
+        sqkinit = torch.tensor(1.0)
+        sqkscale = torch.tensor(1 / dim ** 0.5)
+        self.register_buffer('sqkinit', sqkinit)
+        self.register_buffer('sqkscale', sqkscale)
+        self.sqk = nn.Parameter(torch.ones(dim) * sqkscale)
+
     def forward(self, x: torch.Tensor):
         B, T, _ = x.shape
-        xx = self.pad(x) # 来自RWKV的Token Shifting
-        xxx = xx - x
-        q = self.q_proj(x + xxx * self.q_lora(x))
-        k = self.k_proj(x + xxx * self.k_lora(x))
-        v = self.v_proj(x + xxx * self.v_lora(x))
+        # (V) -view-> (n_heads, head_dim) -> (n_heads, 1, head_dim)
+        actual_sqk = (self.sqk * self.sqkinit / self.sqkscale).view(self.n_heads, 1, -1)
         # (B, T, V) -proj-> (B, T, V)
         # -view-> (B, T, n_heads, head_dim)
         # -T(1, 2)-> (B, n_heads, T, head_dim)
-        q = self.pe(q.view(B, T, self.n_heads, -1).transpose(1, 2))
-        k = self.pe(k.view(B, T, self.n_heads, -1).transpose(1, 2))
-        v = v.view(B, T, self.n_heads, -1).transpose(1, 2)
-        # (B, n_heads, T, head_dim) -T(1, 2) -> (B, T, n_heads, head_dim)
+        q = self.pe(self.q_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)) * actual_sqk
+        k = self.pe(self.k_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)) * actual_sqk
+        v = self.v_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)
+        # (B, n_heads, T, head_dim) -T(1, 2)-> (B, T, n_heads, head_dim)
         # -view-> (B, T, V)
         x = (
             nn.functional.scaled_dot_product_attention(q, k, v,
-                    is_causal=True, dropout_p=self.dropout)
+                    is_causal=True, dropout_p=self.dropout,
+                    scale=self.head_dim ** 0.5)
             .transpose(1, 2)
-            .contiguous()
             .view(B, T, -1)
         )
-        return self.proj(x)
+        return self.o_proj(x)
+
+    def normalize(self) -> None:
+        self.q_proj.weight.data = normalize(self.q_proj.weight.data)
+        self.k_proj.weight.data = normalize(self.k_proj.weight.data)
+        self.v_proj.weight.data = normalize(self.v_proj.weight.data)
+        self.o_proj.weight.data = normalize(self.o_proj.weight.data)
 
 class Block(nn.Module):
     """一个Decoder块"""
-    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float, block_id: int, n_blocks: int):
+    def __init__(self, dim: int, max_length: int, n_heads: int, dropout: float):
         super().__init__()
-        self.ln1 = nn.LayerNorm(dim)
-        self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout, 64)
-        self.ln2 = nn.LayerNorm(dim)
-        self.cmix = ChannelMixing(dim, block_id, n_blocks)
+        self.attn = CausalSelfAttention(dim, max_length, n_heads, dropout)
+        self.mlp = MLP(dim, dim * 4, dropout)
+
+        # 自带的学习率
+        self.lrinit_a = torch.tensor(0.05)
+        self.lrscale_a = torch.tensor(1 / dim ** 0.5)
+        self.lr_a = nn.Parameter(torch.ones(dim) * self.lrscale_a)
+        self.lrinit_m = torch.tensor(0.05)
+        self.lrscale_m = torch.tensor(1 / dim ** 0.5)
+        self.lr_m = nn.Parameter(torch.ones(dim) * self.lrscale_m)
 
     def forward(self, x: torch.Tensor):
-        x = x + self.attn(self.ln1(x))
-        x = x + self.cmix(self.ln2(x))
+        actual_lr_a = self.lr_a * self.lrinit_a / self.lrscale_a
+        actual_lr_m = self.lr_m * self.lrinit_m / self.lrscale_m
+        x = normalize(x + (self.attn(x) - x) * actual_lr_a)
+        x = normalize(x + (self.mlp(x) - x) * actual_lr_m)
         return x
 
 class LLM(nn.Module):
@@ -136,20 +149,34 @@ class LLM(nn.Module):
         super().__init__()
         self.wte = nn.Embedding(vocab_size, dim)
         self.blocks = nn.ModuleList([
-            Block(dim, max_length, n_heads, dropout, block_id=_, n_blocks=n_blocks) for _ in range(n_blocks)
+            Block(dim, max_length, n_heads, dropout) for _ in range(n_blocks)
         ])
-        self.ln = nn.LayerNorm(dim)
         self.lmhead = nn.Linear(dim, vocab_size)
-        self.lmhead.weight = self.wte.weight # 共享权重减少参数数量
+
+        # Logit缩放因数
+        szinit = torch.tensor(1.0)
+        szscale = torch.tensor(1 / dim ** 0.5)
+        self.register_buffer('szinit', szinit)
+        self.register_buffer('szscale', szscale)
+        self.sz = nn.Parameter(torch.ones(vocab_size) * szscale)
+
+        self.normalize()
 
     def forward(self, x: torch.Tensor):
         x = self.wte(x)
         for block in self.blocks:
             x = block(x)
-        x = self.ln(x)
         x = self.lmhead(x)
-        return x
+        actual_sz = self.sz * self.szinit / self.szscale
+        return x * actual_sz
 
     def save(self, path: str):
         torch.save(self.state_dict(), path) # 保存模型参数防止带上不必要的前缀
+
+    def normalize(self) -> None:
+        self.wte.weight.data = normalize(self.wte.weight.data)
+        self.lmhead.weight.data = normalize(self.lmhead.weight.data)
+        for block in self.blocks:
+            block.attn.normalize()
+            block.mlp.normalize()
         

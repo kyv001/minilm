@@ -51,7 +51,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 切换到训练模式
     llm.train()
     # 构建优化器
-    optimizer = optim.AdamW(llm.parameters(), fused=True)
+    optimizer = optim.AdamW(llm.parameters(), fused=True, weight_decay=0.0)
     # 构建学习率调度器
     schedule = get_schedule(WARMUP_STEPS, MAX_LEARINGRATE, TARGET_STEPS, MIN_LEARINGRATE)
     # 构建数据加载器
@@ -96,7 +96,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
 
         del x, y, res
         loss.backward()
-        total_loss += loss.item()
+        total_loss += loss.detach().item()
         total_tokens += n_tokens.item()
 
         if IS_MASTER:
@@ -108,6 +108,8 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
             nn.utils.clip_grad_norm_(llm.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
+            llm.normalize()
+            torch.cuda.empty_cache()
 
             progress = microstep / total_microsteps
             step_time = time.time() - t0

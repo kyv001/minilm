@@ -73,6 +73,6 @@ def encode(vdict: dict[str, int], vocab_size: int, max_token_length: int, s: str
                     w = w[i:]
                     break
             else:
-                codes.append(vocab_size)
+                codes.append(vocab_size - 1)
                 w = w[1:]
     return codes

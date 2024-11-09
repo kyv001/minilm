@@ -11,8 +11,8 @@ class Encoder:
     def __init__(self, vocab: list):
         self.vocab = sorted(vocab, key=lambda x: len(x), reverse=True)
         self.vdict = {w: i for i, w in enumerate(self.vocab)}
-        self.vocab_size = len(vocab)
-        self.max_token_length = max(len(w) for w in vocab)
+        self.max_token_length = len(self.vocab[0])
+        self.vocab_size = len(vocab) + 1 # 加上<unk>
 
     def encode(self, string: str) -> list:
         return encode(self.vdict, self.vocab_size, self.max_token_length, string)
@@ -20,7 +20,7 @@ class Encoder:
     def decode(self, codes: list) -> str:
         s = ""
         for c in codes:
-            if c == self.vocab_size:
+            if c == self.vocab_size - 1:
                 continue
             v = self.vocab[c]
             s += v[:-4] + " " if v[-4:].endswith("</w>") else v
@@ -32,8 +32,8 @@ class Encoder:
 
     @classmethod
     def from_string(cls, s: str, given_tokens: list, target_vocab_size: int):
-        assert len(given_tokens) < target_vocab_size, "给定的词表不能超过目标词表大小"
-        vocab_set = build_vocab(s, target_vocab_size - len(given_tokens))
+        assert len(given_tokens) < target_vocab_size - 1, "给定的词表不能超过目标词表大小"
+        vocab_set = build_vocab(s, target_vocab_size - len(given_tokens) - 1)
         vocab = given_tokens + list(vocab_set)
         return cls(vocab)
 

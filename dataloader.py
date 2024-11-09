@@ -9,7 +9,7 @@ from config import *
 class BinaryDataset(Dataset):
     def __init__(self, path: str, max_length: int):
         with open(path, "rb") as f:
-            array = np.fromfile(path, dtype=np.int16)
+            array = np.fromfile(path, dtype=np.uint16)
         full_length = array.size
         self.n_lines = full_length // (max_length + 1)
         length = self.n_lines * (max_length + 1)
@@ -43,7 +43,7 @@ def collate_fn(batch: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, t
 if __name__ == "__main__":
     from encoder import Encoder
     from torch.utils.data import DataLoader
-    dts = BinaryDataset("openwebtext/openwebtext.txt.bin", MAX_LENGTH)
+    dts = BinaryDataset("openwebtext/openwebtext.txt.bin.part0", MAX_LENGTH)
     print(len(dts))
     d = dts[0]
     e = Encoder.from_path("encoder.json")
