@@ -4,7 +4,7 @@ from encoder import Encoder
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 1024
+MODEL_DIM = 768
 N_HEADS = 16
 N_BLOCKS = 8
 """ # 如果你有足够的显卡和显存：
@@ -17,11 +17,11 @@ DROPOUT = 0.06
 
 # 训练超参数
 TRAIN = False
-BATCH_SIZE = 1
-N_BATCHES = 200
+BATCH_SIZE = 2
+N_BATCHES = 50
 WARMUP_STEPS = 0
 MAX_LEARINGRATE = 2e-3
-TARGET_STEPS = 100000
+TARGET_STEPS = 600000
 MIN_LEARINGRATE = 0
 
 # 预训练数据路径（*.jsonl.bin）

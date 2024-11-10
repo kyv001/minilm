@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from config import *
 
-normalize = lambda x: F.normalize(x, dim=-1)
+normalize = lambda x, dim=-1: F.normalize(x, p=2, dim=dim)
 
 class RotatoryPositionalEncoding(nn.Module):
     """旋转位置编码"""
@@ -49,28 +49,27 @@ class MLP(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # uv的缩放因子
-        suinit = torch.tensor(1.0)
-        suscale = torch.tensor(1.0)
-        self.register_buffer('suinit', suinit)
-        self.register_buffer('suscale', suscale)
-        self.su = nn.Parameter(suscale.detach()) # su可以是一个标量
-        svinit = torch.tensor(1.0)
-        svscale = torch.tensor(1.0)
-        self.register_buffer('svinit', svinit)
-        self.register_buffer('svscale', svscale)
+        suinit = 1.0
+        suscale = 1.0
+        self.restore_scale_su = suinit / suscale
+        self.su = nn.Parameter(torch.ones(hidden_dim) * suscale)
+        svinit = 1.0
+        svscale = 1.0
+        self.restore_scale_sv = svinit / svscale
         self.sv = nn.Parameter(torch.ones(hidden_dim) * svscale)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        actual_su = self.su * self.suinit / self.suscale
-        actual_sv = self.sv * self.svinit / self.svscale
+        actual_su = self.su * self.restore_scale_su
+        actual_sv = self.sv * self.restore_scale_sv
         u = self.u_proj(x) * actual_su
         v = self.v_proj(x) * actual_sv * self.dim ** 0.5
-        return self.o_proj(self.dropout(u * nn.functional.silu(v)))
+        return normalize(self.o_proj(self.dropout(u * nn.functional.silu(v))))
 
+    @torch.no_grad()
     def normalize(self) -> None:
-        self.u_proj.weight.data = normalize(self.u_proj.weight.data)
-        self.v_proj.weight.data = normalize(self.v_proj.weight.data)
-        self.o_proj.weight.data = normalize(self.o_proj.weight.data)
+        self.u_proj.weight.data.copy_(normalize(self.u_proj.weight.data))
+        self.v_proj.weight.data.copy_(normalize(self.v_proj.weight.data))
+        self.o_proj.weight.data.copy_(normalize(self.o_proj.weight.data, 0))
 
 class CausalSelfAttention(nn.Module):
     """带因果关系的多头自注意力，使用Flash Attention和RoPE"""
@@ -87,38 +86,37 @@ class CausalSelfAttention(nn.Module):
         self.dropout = dropout
 
         # QK的缩放因子
-        sqkinit = torch.tensor(1.0)
-        sqkscale = torch.tensor(1 / dim ** 0.5)
-        self.register_buffer('sqkinit', sqkinit)
-        self.register_buffer('sqkscale', sqkscale)
-        self.sqk = nn.Parameter(torch.ones(dim) * sqkscale)
+        sqkinit = 1.0
+        sqkscale = 1 / dim ** 0.5
+        self.restore_scale_sqk = sqkinit / sqkscale
+        self.sqk = nn.Parameter(torch.ones(n_heads, 1, self.head_dim) * sqkscale)
 
     def forward(self, x: torch.Tensor):
-        B, T, _ = x.shape
-        # (V) -view-> (n_heads, head_dim) -> (n_heads, 1, head_dim)
-        actual_sqk = (self.sqk * self.sqkinit / self.sqkscale).view(self.n_heads, 1, -1)
-        # (B, T, V) -proj-> (B, T, V)
+        B, T, C = x.shape
+        actual_sqk = self.sqk * self.restore_scale_sqk # (n_heads, 1, head_dim)
+        # (B, T, C) -proj-> (B, T, C)
         # -view-> (B, T, n_heads, head_dim)
         # -T(1, 2)-> (B, n_heads, T, head_dim)
         q = self.pe(self.q_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)) * actual_sqk
         k = self.pe(self.k_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)) * actual_sqk
         v = self.v_proj(x).view(B, T, self.n_heads, -1).transpose(1, 2)
         # (B, n_heads, T, head_dim) -T(1, 2)-> (B, T, n_heads, head_dim)
-        # -view-> (B, T, V)
+        # -view-> (B, T, C)
         x = (
             nn.functional.scaled_dot_product_attention(q, k, v,
                     is_causal=True, dropout_p=self.dropout,
                     scale=self.head_dim ** 0.5)
             .transpose(1, 2)
-            .view(B, T, -1)
+            .view(B, T, C)
         )
-        return self.o_proj(x)
+        return normalize(self.o_proj(x))
 
+    @torch.no_grad()
     def normalize(self) -> None:
-        self.q_proj.weight.data = normalize(self.q_proj.weight.data)
-        self.k_proj.weight.data = normalize(self.k_proj.weight.data)
-        self.v_proj.weight.data = normalize(self.v_proj.weight.data)
-        self.o_proj.weight.data = normalize(self.o_proj.weight.data)
+        self.q_proj.weight.data.copy_(normalize(self.q_proj.weight.data))
+        self.k_proj.weight.data.copy_(normalize(self.k_proj.weight.data))
+        self.v_proj.weight.data.copy_(normalize(self.v_proj.weight.data))
+        self.o_proj.weight.data.copy_(normalize(self.o_proj.weight.data, 0))
 
 class Block(nn.Module):
     """一个Decoder块"""
@@ -128,19 +126,26 @@ class Block(nn.Module):
         self.mlp = MLP(dim, dim * 4, dropout)
 
         # 自带的学习率
-        self.lrinit_a = torch.tensor(0.05)
-        self.lrscale_a = torch.tensor(1 / dim ** 0.5)
-        self.lr_a = nn.Parameter(torch.ones(dim) * self.lrscale_a)
-        self.lrinit_m = torch.tensor(0.05)
-        self.lrscale_m = torch.tensor(1 / dim ** 0.5)
-        self.lr_m = nn.Parameter(torch.ones(dim) * self.lrscale_m)
+        lrinit_a = 0.05
+        lrscale_a = 1 / dim ** 0.5
+        self.restore_scale_a = lrinit_a / lrscale_a
+        self.lr_a = nn.Parameter(torch.ones(dim) * lrscale_a)
+        lrinit_m = 0.05
+        lrscale_m = 1 / dim ** 0.5
+        self.restore_scale_m = lrinit_m / lrscale_m
+        self.lr_m = nn.Parameter(torch.ones(dim) * lrscale_m)
 
     def forward(self, x: torch.Tensor):
-        actual_lr_a = self.lr_a * self.lrinit_a / self.lrscale_a
-        actual_lr_m = self.lr_m * self.lrinit_m / self.lrscale_m
+        actual_lr_a = self.lr_a * self.restore_scale_a
+        actual_lr_m = self.lr_m * self.restore_scale_m
         x = normalize(x + (self.attn(x) - x) * actual_lr_a)
         x = normalize(x + (self.mlp(x) - x) * actual_lr_m)
         return x
+
+    @torch.no_grad()
+    def normalize(self) -> None:
+        self.attn.normalize()
+        self.mlp.normalize()
 
 class LLM(nn.Module):
     """大模型本体"""
@@ -154,10 +159,9 @@ class LLM(nn.Module):
         self.lmhead = nn.Linear(dim, vocab_size)
 
         # Logit缩放因数
-        szinit = torch.tensor(1.0)
-        szscale = torch.tensor(1 / dim ** 0.5)
-        self.register_buffer('szinit', szinit)
-        self.register_buffer('szscale', szscale)
+        szinit = 1.0
+        szscale = 1 / dim ** 0.5
+        self.restore_scale = szinit / szscale
         self.sz = nn.Parameter(torch.ones(vocab_size) * szscale)
 
         self.normalize()
@@ -167,16 +171,16 @@ class LLM(nn.Module):
         for block in self.blocks:
             x = block(x)
         x = self.lmhead(x)
-        actual_sz = self.sz * self.szinit / self.szscale
+        actual_sz = self.sz * self.restore_scale
         return x * actual_sz
 
     def save(self, path: str):
         torch.save(self.state_dict(), path) # 保存模型参数防止带上不必要的前缀
 
+    @torch.no_grad()
     def normalize(self) -> None:
-        self.wte.weight.data = normalize(self.wte.weight.data)
-        self.lmhead.weight.data = normalize(self.lmhead.weight.data)
+        self.wte.weight.data.copy_(normalize(self.wte.weight.data))
+        self.lmhead.weight.data.copy_(normalize(self.lmhead.weight.data))
         for block in self.blocks:
-            block.attn.normalize()
-            block.mlp.normalize()
+            block.normalize()
         

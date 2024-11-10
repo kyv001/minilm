@@ -43,7 +43,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
     # 编译模型加快速度
     torch.set_float32_matmul_precision('high')
     print("Compiling module")
-    llm = torch.compile(llm) # type: ignore
+    llm.compile()
     print("Compiled successfully")
     # 如果使用DDP，将模型分布到各个显卡上
     if WORLD_SIZE > 1:
@@ -120,7 +120,7 @@ def train(RANK: int, WORLD_SIZE: int, USE_DDP: bool):
                 print(f"step:{step} loss:{total_loss:.3f} lr:{lr:.8f} n_tokens:{total_tokens}")
                 print(f"progress:{progress * 100:.3f}% {step_time:.3f}s/step {(step - START_STEP) / progress * step_time - total_time:.3f}s to go")
 
-                if step % 20 == 0:
+                if step % 50 == 0:
                     save_model(llm, f"llm{step}_{'finetune' if FINETUNE else 'pretrain'}_state_dict_{total_loss}.pt", USE_DDP)
                     print(f"Saved -> llm{step}_state_dict_{total_loss}.pt")
 
