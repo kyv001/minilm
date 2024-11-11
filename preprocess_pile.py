@@ -1,5 +1,6 @@
-"""预处理openwebtext数据集"""
+"""预处理Pile数据集"""
 import math, os
+import ijson.backends.yajl2_c as ijson # type: ignore
 from multiprocessing import Queue, Process
 import numpy as np
 from tqdm import tqdm
@@ -9,9 +10,10 @@ from encoder import Encoder
 def _preprocess(qi: Queue, encoder: Encoder, outfname: str): # 把所有文字用<eos>隔开然后连接在一起
     with open(outfname, "ab") as f_out:
         while True:
-            d = qi.get()
-            if d is None:
+            j = qi.get()
+            if j is None:
                 break
+            d = next(ijson.items(j, "text"))
             codes = encoder.encode(d) + [SPECIAL_TOKENS_IDS["<eos>"]]
             f_out.write(np.array(codes, dtype=np.uint16).tobytes())
 
@@ -24,18 +26,9 @@ def preprocess(fname: str, encoder: Encoder):
         procs.append(p)
 
     with open(fname, "r", encoding="utf-8") as f_in:
-        content = ""
-        blankline_count = 0
         for line in tqdm(f_in):
-            line = line.strip()
-            if line:
-                blankline_count = 0
-                content += line + " "
-            else:
-                blankline_count += 1
-                if blankline_count > 2 and content:
-                    qi.put(content)
-                    content = ""
+            if len(line) > 2:
+                qi.put(line.strip())
 
     for i in range(32):
         qi.put(None)
@@ -47,7 +40,7 @@ def preprocess(fname: str, encoder: Encoder):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) <= 1:
-        print("usage: python preprocess_plaintext.py <path> [<path>, ...]")
+        print("usage: python preprocess_pile.py <path> [<path>, ...]")
         exit(1)
     fnames = sys.argv[1:]
     for fname in fnames:

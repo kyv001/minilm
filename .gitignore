@@ -19,3 +19,4 @@ openwebtext
 build
 .*
 !.gitignore
+pile/

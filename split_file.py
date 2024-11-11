@@ -1,4 +1,4 @@
-def split_file(file_path: str, part_size: int=1024 ** 3):
+def split_file(file_path: str, part_size: int=4 * 1024 ** 3):
     with open(file_path, 'rb') as f:
         while True:
             part = f.read(part_size)

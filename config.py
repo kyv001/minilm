@@ -4,9 +4,9 @@ from encoder import Encoder
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 768
+MODEL_DIM = 1024
 N_HEADS = 16
-N_BLOCKS = 8
+N_BLOCKS = 16
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
@@ -17,15 +17,15 @@ DROPOUT = 0.06
 
 # 训练超参数
 TRAIN = False
-BATCH_SIZE = 2
-N_BATCHES = 50
+BATCH_SIZE = 1
+N_BATCHES = 400
 WARMUP_STEPS = 0
 MAX_LEARINGRATE = 2e-3
 TARGET_STEPS = 600000
 MIN_LEARINGRATE = 0
 
 # 预训练数据路径（*.jsonl.bin）
-PRETRAIN_DATA = "openwebtext/openwebtext.txt.bin.part0"
+PRETRAIN_DATA = "pile/pile0.jsonl.bin.part0"
 # 微调数据路径（*.bin）
 FINETUNE_DATA = "finetune.bin"
 FINETUNE = False
