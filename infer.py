@@ -19,7 +19,7 @@ def infer():
     print("Compiling module")
     llm = torch.compile(llm)
     print("Compiled successfully")
-    encoded_prompt = []
+    encoded_prompt = encoder.encode(SYS_PROMPT) if FINETUNE else []
     with torch.no_grad():
         while True:
             try:
@@ -28,7 +28,7 @@ def infer():
                     encoded_prompt = encoder.encode(prompt)
                 else:
                     encoded_prompt += [
-                        *encoder.encode("甲：" + prompt + "\n\n乙："),
+                        *encoder.encode("User: " + prompt + "\n\nAssistant: ")[:-1],
                     ]
                 x = torch.tensor(encoded_prompt).unsqueeze(0).to(DEVICE)
                 while True:

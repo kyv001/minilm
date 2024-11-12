@@ -4,9 +4,9 @@ from encoder import Encoder
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 1024
+MODEL_DIM = 768
 N_HEADS = 16
-N_BLOCKS = 16
+N_BLOCKS = 8
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
@@ -17,20 +17,20 @@ DROPOUT = 0.06
 
 # 训练超参数
 TRAIN = False
-BATCH_SIZE = 1
-N_BATCHES = 400
+BATCH_SIZE = 2
+N_BATCHES = 50
 WARMUP_STEPS = 0
-MAX_LEARINGRATE = 2e-3
+MAX_LEARINGRATE = 3e-4
 TARGET_STEPS = 600000
-MIN_LEARINGRATE = 0
+MIN_LEARINGRATE = 3e-4
 
 # 预训练数据路径（*.jsonl.bin）
 PRETRAIN_DATA = "pile/pile0.jsonl.bin.part0"
 # 微调数据路径（*.bin）
-FINETUNE_DATA = "finetune.bin"
-FINETUNE = False
-N_FINETUNE_BLOCKS = 10 # 防止爆显存
-SYS_PROMPT = ""
+FINETUNE_DATA = "ultrachat/ultrachat_release_230407.json.bin"
+FINETUNE = True
+N_FINETUNE_BLOCKS = 8 # 防止爆显存
+SYS_PROMPT = "User: Hello.\n\nAssistant: I am a chatbot that can help you with your queries. My name is MiniLM.\n\n"
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -50,7 +50,7 @@ except FileNotFoundError:
     SPECIAL_TOKENS_TENSORS = {}
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = None
+PRETRAINED_STATE_DICT_PATH = "ckpt3050.pt"
 FINETUNED_STATE_DICT_PATH = None
 START_STEP = 0
 
