@@ -4,9 +4,9 @@ from encoder import Encoder
 
 # 模型超参数
 MAX_LENGTH = 1024
-MODEL_DIM = 768
+MODEL_DIM = 1024
 N_HEADS = 16
-N_BLOCKS = 8
+N_BLOCKS = 10
 """ # 如果你有足够的显卡和显存：
 MAX_LENGTH = 2048
 MODEL_DIM = 4096
@@ -16,21 +16,21 @@ N_BLOCKS = 32
 DROPOUT = 0.06
 
 # 训练超参数
-TRAIN = False
-BATCH_SIZE = 2
-N_BATCHES = 50
+BATCH_SIZE = 1
+N_BATCHES = 256
 WARMUP_STEPS = 0
-MAX_LEARINGRATE = 3e-4
+MAX_LEARINGRATE = 2e-3
 TARGET_STEPS = 600000
-MIN_LEARINGRATE = 3e-4
+MIN_LEARINGRATE = 0
 
 # 预训练数据路径（*.jsonl.bin）
-PRETRAIN_DATA = "pile/pile0.jsonl.bin.part0"
+PRETRAIN_DATA = "openwebtext/openwebtext.txt.bin.part1"
 # 微调数据路径（*.bin）
 FINETUNE_DATA = "ultrachat/ultrachat_release_230407.json.bin"
-FINETUNE = True
+FINETUNE = False
 N_FINETUNE_BLOCKS = 8 # 防止爆显存
-SYS_PROMPT = "User: Hello.\n\nAssistant: I am a chatbot that can help you with your queries. My name is MiniLM.\n\n"
+SYS_PROMPT = ""
+ROLE_PREFIXES = ["Assistant: ", "User: "]
 
 # 特殊token
 SPECIAL_TOKENS = ["<pad>", "<eos>", "<ins>", "</ins>"]
@@ -50,9 +50,9 @@ except FileNotFoundError:
     SPECIAL_TOKENS_TENSORS = {}
 
 # 检查点位置和属性
-PRETRAINED_STATE_DICT_PATH = "ckpt3050.pt"
+PRETRAINED_STATE_DICT_PATH = "llm1500_pretrain_state_dict_3.8536354270763695.pt"
 FINETUNED_STATE_DICT_PATH = None
-START_STEP = 0
+START_STEP = 1500
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
@@ -63,7 +63,6 @@ __all__ = [
     "N_HEADS",
     "N_BLOCKS",
     "DROPOUT",
-    "TRAIN",
     "BATCH_SIZE",
     "N_BATCHES",
     "WARMUP_STEPS",
@@ -75,6 +74,7 @@ __all__ = [
     "FINETUNE",
     "N_FINETUNE_BLOCKS",
     "SYS_PROMPT",
+    "ROLE_PREFIXES",
     "SPECIAL_TOKENS",
     "SPECIAL_TOKENS_IDS",
     "SPECIAL_TOKENS_TENSORS",

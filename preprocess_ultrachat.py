@@ -8,22 +8,30 @@ from config import *
 from encoder import Encoder
 
 def _preprocess(qi: Queue, encoder: Encoder, outfname: str):
-    with open(outfname, "ab") as f_out:
+    prefixes = [encoder.encode(prefix) for prefix in ROLE_PREFIXES]
+    with open(outfname, "ab") as f_out, open(outfname + ".mask", "ab") as f_mask:
         while True:
             j = qi.get()
             if j is None:
                 break
             d = next(ijson.items(j, "data"))
-            s = ""
+            codes = []
+            mask = []
             role = True
             for turn in d:
+                context = encoder.encode(turn + "\n\n")
+                role_prefix = prefixes[role]
+                codes += role_prefix + context
                 if role:
-                    s += "User: " + turn + "\n\n"
+                    mask += [0] * len(role_prefix) + [0] * len(context)
                 else:
-                    s += "Assistant: " + turn + "\n\n"
+                    mask += [0] * len(role_prefix) + [1] * len(context)
                 role = not role
-            codes = encoder.encode(s) + [SPECIAL_TOKENS_IDS["<eos>"]]
+            assert len(codes) == len(mask)
+            codes += [SPECIAL_TOKENS_IDS["<pad>"]] * (MAX_LENGTH + 1 - len(codes) % (MAX_LENGTH + 1))
+            mask += [0] * (MAX_LENGTH + 1 - len(mask) % (MAX_LENGTH + 1))
             f_out.write(np.array(codes, dtype=np.uint16).tobytes())
+            f_mask.write(np.array(mask, dtype=np.uint8).tobytes())
 
 def preprocess(fname: str, encoder: Encoder):
     qi: Queue = Queue(maxsize=64)
@@ -42,8 +50,17 @@ def preprocess(fname: str, encoder: Encoder):
         qi.put(None)
     for p in procs:
         p.join()
-    os.system(f"cat {fname}.bin.part* > {fname}.bin")
-    os.system(f"rm {fname}.bin.part*")
+    
+    with open(f"{fname}.bin", "ab") as f_out, open(f"{fname}.mask.bin", "ab") as f_mask:
+        for i in tqdm(range(32)):
+            if os.path.exists(f"{fname}.bin.part{i}"):
+                with open(f"{fname}.bin.part{i}", "rb") as f_in:
+                    f_out.write(f_in.read())
+                os.remove(f"{fname}.bin.part{i}")
+            if os.path.exists(f"{fname}.bin.part{i}.mask"):
+                with open(f"{fname}.bin.part{i}.mask", "rb") as f_in:
+                    f_mask.write(f_in.read())
+                os.remove(f"{fname}.bin.part{i}.mask")
 
 if __name__ == "__main__":
     import sys
