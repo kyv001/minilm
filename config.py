@@ -23,12 +23,20 @@ MAX_LEARINGRATE = 2e-3
 TARGET_STEPS = 600000
 MIN_LEARINGRATE = 0
 
-# 预训练数据路径（*.jsonl.bin）
+# 微调超参数
+FINETUNE_BATCH_SIZE = 1
+FINETUNE_N_BATCHES = 128
+FINETUNE_WARMUP_STEPS = 0
+FINETUNE_MAX_LEARINGRATE = 6e-4
+FINETUNE_TARGET_STEPS = 1000
+FINETUNE_MIN_LEARINGRATE = 3e-4
+
+# 预训练数据路径
 PRETRAIN_DATA = "openwebtext/openwebtext.txt.bin.part1"
-# 微调数据路径（*.bin）
+# 微调数据路径
 FINETUNE_DATA = "ultrachat/ultrachat_release_230407.json.bin"
-FINETUNE = False
-N_FINETUNE_BLOCKS = 8 # 防止爆显存
+FINETUNE_MASK = "ultrachat/ultrachat_release_230407.json.mask.bin"
+FINETUNE_N_BLOCKS = None # 防止爆显存
 SYS_PROMPT = ""
 ROLE_PREFIXES = ["Assistant: ", "User: "]
 
@@ -53,33 +61,8 @@ except FileNotFoundError:
 PRETRAINED_STATE_DICT_PATH = "llm1500_pretrain_state_dict_3.8536354270763695.pt"
 FINETUNED_STATE_DICT_PATH = None
 START_STEP = 1500
+FINETUNE_START_STEP = 0
 
 # Loss数据记录文件
 LOSSES_LOG_PATH = "losses.log"
-
-__all__ = [
-    "MAX_LENGTH",
-    "MODEL_DIM",
-    "N_HEADS",
-    "N_BLOCKS",
-    "DROPOUT",
-    "BATCH_SIZE",
-    "N_BATCHES",
-    "WARMUP_STEPS",
-    "MAX_LEARINGRATE",
-    "TARGET_STEPS",
-    "MIN_LEARINGRATE",
-    "PRETRAIN_DATA",
-    "FINETUNE_DATA",
-    "FINETUNE",
-    "N_FINETUNE_BLOCKS",
-    "SYS_PROMPT",
-    "ROLE_PREFIXES",
-    "SPECIAL_TOKENS",
-    "SPECIAL_TOKENS_IDS",
-    "SPECIAL_TOKENS_TENSORS",
-    "PRETRAINED_STATE_DICT_PATH",
-    "FINETUNED_STATE_DICT_PATH",
-    "START_STEP",
-    "LOSSES_LOG_PATH",
-]
+FINETUNE_LOSSES_LOG_PATH = "finetune-losses.log"
