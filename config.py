@@ -59,7 +59,7 @@ except FileNotFoundError:
 
 # 检查点位置和属性
 PRETRAINED_STATE_DICT_PATH = "llm1500_pretrain_state_dict_3.8536354270763695.pt"
-FINETUNED_STATE_DICT_PATH = None
+FINETUNED_STATE_DICT_PATH = "llm900_finetune_state_dict_1.9746221052482724.pt"
 START_STEP = 1500
 FINETUNE_START_STEP = 0
 
